@@ -1,0 +1,16 @@
+services:
+  mindforge-paper:
+    build: .
+    container_name: mindforge-paper
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./out:/app/out
+    command: >
+      mindforge simulate
+      --config configs/paper_ai_agents.yaml
+      --steps 400
+      --no-live
+      --report out/simulation_report.html

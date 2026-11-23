@@ -1,0 +1,71 @@
+# MindForge Paper-Trading Configuration — AI Agent Token Basket
+# Designed for capital-light experimentation ($1,000 paper equity, $25-$40 quote clips)
+
+agent_name: mindforge-ai-agents-paper
+
+vault:
+  mode: paper
+  starting_equity_usd: 1000.0
+
+execution:
+  venue: paper
+  dry_run: true
+  maker_fee_bps: -0.5          # -0.5 bps simulated maker rebate
+  fill_probability_base: 0.38
+  tick_interval_sec: 0.25
+
+markets:
+  - symbol: VIRTUAL
+    initial_price: 1.85
+    tick_size: 0.0005
+    lot_size: 1.0
+    min_notional_usd: 10.0
+    base_order_usd: 35.0
+    max_position_usd: 160.0
+    base_half_spread_bps: 16.0
+
+  - symbol: AI16Z
+    initial_price: 0.62
+    tick_size: 0.0002
+    lot_size: 1.0
+    min_notional_usd: 10.0
+    base_order_usd: 30.0
+    max_position_usd: 140.0
+    base_half_spread_bps: 20.0
+
+  - symbol: AIXBT
+    initial_price: 0.34
+    tick_size: 0.0001
+    lot_size: 5.0
+    min_notional_usd: 10.0
+    base_order_usd: 25.0
+    max_position_usd: 120.0
+    base_half_spread_bps: 22.0
+
+signals:
+  mindshare_weight_bps: 8.0      # Shift FV up/down with narrative share + social velocity
+  onchain_weight_bps: 11.0       # Weight actual on-chain agent activity slightly higher than hype
+  forecast_weight: 0.45          # Weight on AttentionForecaster (EWMA or custom LLM)
+  funding_weight: 0.20
+  max_fv_shift_bps: 45.0
+  rolling_window: 25
+
+quoting:
+  inventory_skew_bps: 26.0       # Lean bids when short, lean asks when long
+  vol_spread_multiplier: 0.65
+  instability_spread_bps: 22.0   # Widen spreads when social attention is erratic or diverging
+  instability_size_decay: 0.60   # Trim quote clip sizes during hype spikes
+  min_half_spread_bps: 8.0
+  max_half_spread_bps: 220.0
+  levels_per_side: 2
+  level_spacing_bps: 12.0
+
+risk:
+  max_gross_exposure_usd: 380.0
+  max_daily_loss_usd: 45.0
+  max_drawdown_pct: 0.08         # 8% peak-to-trough drawdown kill switch
+  mindshare_widen_threshold: 1.4
+  mindshare_halt_threshold: 2.8  # Pause quoting on extreme narrative shock
+  toxic_flow_markout_bps: -12.0  # Adverse-selection markout threshold
+  toxic_flow_addon_bps: 16.0
+  max_feed_age_sec: 30.0

@@ -1,0 +1,68 @@
+# MindForge Example — Hyperliquid Community Vault / Tiny Live Capital Hook
+#
+# NOTE: dry_run is TRUE by default for safety.
+# This config demonstrates how the exact same MindForge strategy can query
+# a Hyperliquid vault's equity and route quotes with vaultAddress attached,
+# without rewriting fair-value, quoting, or risk logic.
+
+agent_name: mindforge-hl-vault-example
+
+vault:
+  mode: hyperliquid_vault
+  starting_equity_usd: 500.0        # Fallback / hard cap if vault query unavailable
+  vault_address: null               # Set MINDFORGE_HL_VAULT_ADDRESS in .env or paste 0x... here
+  vault_budget_fraction: 0.20       # Deploy at most 20% of vault equity in this sub-strategy
+
+execution:
+  venue: hyperliquid
+  dry_run: true                     # Keep true until you attach a live OrderSigner & test on testnet
+  hyperliquid_testnet: true
+  maker_fee_bps: -0.2
+  tick_interval_sec: 1.0
+
+markets:
+  - symbol: AI16Z
+    initial_price: 0.62
+    tick_size: 0.0001
+    lot_size: 1.0
+    min_notional_usd: 12.0
+    base_order_usd: 25.0            # Tiny live capital clip size
+    max_position_usd: 100.0
+    base_half_spread_bps: 20.0
+
+  - symbol: VIRTUAL
+    initial_price: 1.85
+    tick_size: 0.0005
+    lot_size: 1.0
+    min_notional_usd: 12.0
+    base_order_usd: 25.0
+    max_position_usd: 100.0
+    base_half_spread_bps: 18.0
+
+signals:
+  mindshare_weight_bps: 7.0
+  onchain_weight_bps: 12.0
+  forecast_weight: 0.40
+  funding_weight: 0.25
+  max_fv_shift_bps: 40.0
+  rolling_window: 30
+
+quoting:
+  inventory_skew_bps: 30.0
+  vol_spread_multiplier: 0.75
+  instability_spread_bps: 25.0
+  instability_size_decay: 0.70
+  min_half_spread_bps: 10.0
+  max_half_spread_bps: 250.0
+  levels_per_side: 2
+  level_spacing_bps: 15.0
+
+risk:
+  max_gross_exposure_usd: 200.0
+  max_daily_loss_usd: 20.0
+  max_drawdown_pct: 0.05            # Tighter 5% kill switch for vault capital
+  mindshare_widen_threshold: 1.3
+  mindshare_halt_threshold: 2.5
+  toxic_flow_markout_bps: -10.0
+  toxic_flow_addon_bps: 18.0
+  max_feed_age_sec: 15.0
