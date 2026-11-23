@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<title>MindForge LIVE — $100 Hyperliquid Paper Trader</title>
+<title>MindForge LIVE — Optimized $100 Hyperliquid Paper Trader</title>
 <style>
   :root {
     --bg: #070b14; --card: #111827; --border: #1f2937;
@@ -58,10 +58,10 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE</div>
+      <div class="title">MindForge LIVE v2</div>
       <div class="pill"><span class="dot" id="ws-dot"></span><span id="ws-status">CONNECTING...</span></div>
     </div>
-    <div class="sub">Real-Time Hyperliquid Mainnet WebSocket &middot; $100 Paper &middot; Post-Only ALO</div>
+    <div class="sub">Optimized 48h OOS Settings &middot; 25b+Vol Spread &middot; 50b Skew &middot; Trend Shield + 40b Stop</div>
   </div>
 
   <div class="grid2">
@@ -97,29 +97,35 @@
   </div>
 
   <div class="card">
-    <div class="sec-title"><span>All Fees &amp; Gas Accounted</span></div>
+    <div class="sec-title"><span>All Fees, Stops &amp; Gas Accounted</span></div>
     <div class="fee-row"><span>Arbitrum &rarr; HL Bridge (1-time)</span><span class="neg">-$0.15000</span></div>
-    <div class="fee-row"><span>Tier-0 Maker Fees (1.5 bps)</span><span class="neg" id="f-trade">-$0.00000</span></div>
+    <div class="fee-row"><span>Trading Fees (1.5b maker / 4.5b stop)</span><span class="neg" id="f-trade">-$0.00000</span></div>
     <div class="fee-row"><span>Hyperliquid L1 Order Gas</span><span class="pos">$0.00000 (gasless)</span></div>
-    <div class="fee-row"><span>Max Drawdown</span><span id="f-dd">0.150%</span></div>
+    <div class="fee-row"><span>Stop-Loss Triggers / Max DD</span><span id="f-dd">0 stops &middot; 0.150%</span></div>
   </div>
 
   <div class="card">
-    <div class="sec-title"><span>Live Fill Tape (Real Market Trades Hitting Quotes)</span></div>
-    <div id="fill-list" class="kpi-sm">Watching live Hyperliquid trades...</div>
+    <div class="sec-title"><span>Live Fill Tape (Patient Wide Maker Quotes)</span></div>
+    <div id="fill-list" class="kpi-sm">Resting wide ±25+ bps quotes — waiting for choppy sweeps to clear 3 bps fee hurdle...</div>
   </div>
 </div>
 
 <script>
+// Validated out-of-sample settings from 48h real Hyperliquid 1m candle grid search:
+// hs=25 bps, skew=50 bps, vol_mult=1.0, trend_shield=20 bps, stop_loss=40 bps
 const MARKETS = [
-  { sym: "HYPE",    tick: 0.001,    lot: 0.01, baseUsd: 15, maxPosUsd: 45, baseSpreadBps: 2.2 },
-  { sym: "VIRTUAL", tick: 0.00001,  lot: 0.1,  baseUsd: 12, maxPosUsd: 35, baseSpreadBps: 2.5 },
-  { sym: "KAITO",   tick: 0.00001,  lot: 1.0,  baseUsd: 12, maxPosUsd: 35, baseSpreadBps: 4.5 },
-  { sym: "AIXBT",   tick: 0.000001, lot: 1.0,  baseUsd: 12, maxPosUsd: 30, baseSpreadBps: 8.0 },
+  { sym: "KAITO",   tick: 0.00001,  lot: 1.0,  baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
+  { sym: "AIXBT",   tick: 0.000001, lot: 1.0,  baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
+  { sym: "HYPE",    tick: 0.001,    lot: 0.01, baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
+  { sym: "VIRTUAL", tick: 0.00001,  lot: 0.1,  baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
 ];
 const MAKER_FEE_BPS = 1.5;
+const TAKER_FEE_BPS = 4.5;
 const BRIDGE_GAS_USD = 0.15;
-const SKEW_BPS = 14.0;
+const SKEW_BPS = 50.0;
+const VOL_MULT = 1.0;
+const TREND_SHIELD_BPS = 20.0;
+const STOP_LOSS_BPS = 40.0;
 const MIN_NOTIONAL = 10.0;
 
 let running = true;
@@ -135,6 +141,7 @@ function initState() {
     maxDd: BRIDGE_GAS_USD / 100.0,
     tradingFees: 0,
     fills: 0,
+    stops: 0,
     vol: 0,
     curve: [100.0, 100.0 - BRIDGE_GAS_USD],
     recentFills: [],
@@ -145,7 +152,7 @@ function initState() {
   };
   MARKETS.forEach(m => {
     state.pos[m.sym] = { size: 0, avgEntry: 0, realized: 0 };
-    state.quotes[m.sym] = { bid: null, ask: null, bidSz: 0, askSz: 0, spreadBps: m.baseSpreadBps };
+    state.quotes[m.sym] = { bid: null, ask: null, bidSz: 0, askSz: 0, spreadBps: m.baseSpreadBps, status: "QUOTING" };
     state.mids[m.sym] = [];
   });
 }
@@ -154,7 +161,7 @@ function roundDown(px, tick) { return Math.floor(px / tick + 1e-12) * tick; }
 function roundUp(px, tick) { return Math.ceil(px / tick - 1e-12) * tick; }
 function roundLot(sz, lot) { return Math.floor(sz / lot + 1e-12) * lot; }
 
-function applyFill(sym, side, price, size) {
+function applyFill(sym, side, price, size, isMaker = true, tag = "MAKER") {
   const p = state.pos[sym];
   const delta = side === "BUY" ? size : -size;
   if (p.size !== 0 && (p.size > 0) !== (delta > 0)) {
@@ -172,7 +179,8 @@ function applyFill(sym, side, price, size) {
     p.size = newSize;
   }
   const notional = price * size;
-  const fee = notional * (MAKER_FEE_BPS / 10000);
+  const feeBps = isMaker ? MAKER_FEE_BPS : TAKER_FEE_BPS;
+  const fee = notional * (feeBps / 10000);
   state.cash -= delta * price;
   state.cash -= fee;
   state.tradingFees += fee;
@@ -180,7 +188,7 @@ function applyFill(sym, side, price, size) {
   state.vol += notional;
   state.recentFills.unshift({
     t: new Date().toLocaleTimeString([], { hour12: false }),
-    sym, side, price, notional, fee
+    sym, side, tag, price, notional, fee
   });
   if (state.recentFills.length > 15) state.recentFills.pop();
 }
@@ -199,49 +207,76 @@ function updateQuotes(m) {
   const bk = state.books[m.sym];
   if (!bk) return;
   const p = state.pos[m.sym];
-  const posUsd = p.size * bk.mid;
-  const rawQ = posUsd / m.maxPosUsd;
-  const q = Math.max(-1, Math.min(1, rawQ));
-  const resPx = bk.micro * (1 - (SKEW_BPS * q) / 10000);
 
-  // Realized vol estimate
+  // 1. Per-position stop-loss guard (40 bps adverse move -> scratch flat)
+  if (p.size !== 0 && p.avgEntry > 0) {
+    const adverseBps = p.size > 0
+      ? ((p.avgEntry - bk.bid) / p.avgEntry) * 10000
+      : ((bk.ask - p.avgEntry) / p.avgEntry) * 10000;
+    if (adverseBps >= STOP_LOSS_BPS) {
+      const closeSide = p.size > 0 ? "SELL" : "BUY";
+      const closePx = p.size > 0 ? bk.bid : bk.ask;
+      applyFill(m.sym, closeSide, closePx, Math.abs(p.size), false, "STOP");
+      state.stops += 1;
+    }
+  }
+
+  // 2. Realized vol & short-term trend shield from rolling mids
   const hist = state.mids[m.sym];
-  let volBps = 2.0;
-  if (hist.length >= 4) {
+  let volBps = 6.0;
+  let momShort = 0.0;
+  let momLong = 0.0;
+  if (hist.length >= 6) {
     const rets = [];
     for (let i = 1; i < hist.length; i++) rets.push(Math.log(hist[i] / hist[i-1]) * 10000);
     const mean = rets.reduce((a,b) => a+b, 0) / rets.length;
     volBps = Math.sqrt(rets.reduce((a,b) => a + (b - mean) ** 2, 0) / rets.length);
+    momShort = (hist[hist.length - 1] / hist[Math.max(0, hist.length - 10)] - 1) * 10000;
+    momLong = (hist[hist.length - 1] / hist[0] - 1) * 10000;
   }
-  const halfSpread = Math.max(2.0, Math.min(120.0, m.baseSpreadBps + 0.3 * volBps));
 
-  const bidScale = Math.max(0, 1 - Math.max(0, rawQ));
-  const askScale = Math.max(0, 1 - Math.max(0, -rawQ));
+  const posUsd = p.size * bk.mid;
+  const rawQ = posUsd / m.maxPosUsd;
+  const q = Math.max(-1, Math.min(1, rawQ));
+  const resPx = bk.micro * (1 - (SKEW_BPS * q) / 10000);
+  const halfSpread = Math.max(12.0, Math.min(150.0, m.baseSpreadBps + VOL_MULT * volBps));
+
+  // Dual-horizon trend shield: step aside when dumping or breaking out
+  const shieldBid = (momShort <= -TREND_SHIELD_BPS) || (momLong <= -TREND_SHIELD_BPS * 2);
+  const shieldAsk = (momShort >= TREND_SHIELD_BPS) || (momLong >= TREND_SHIELD_BPS * 2);
+
+  const bidScale = (rawQ >= 0.95 || shieldBid) ? 0 : Math.max(0, 1 - Math.max(0, rawQ));
+  const askScale = (rawQ <= -0.95 || shieldAsk) ? 0 : Math.max(0, 1 - Math.max(0, -rawQ));
 
   let bid = null, bidSz = 0, ask = null, askSz = 0;
   if (bidScale > 0.05 && m.baseUsd * bidScale >= MIN_NOTIONAL) {
     let px = roundDown(resPx * (1 - halfSpread / 10000), m.tick);
-    px = Math.min(px, roundDown(bk.ask - m.tick, m.tick)); // Post-only ALO clamp
+    px = Math.min(px, roundDown(bk.ask - m.tick, m.tick));
     const sz = roundLot((m.baseUsd * bidScale) / px, m.lot);
     if (px > 0 && sz * px >= MIN_NOTIONAL) { bid = px; bidSz = sz; }
   }
   if (askScale > 0.05 && m.baseUsd * askScale >= MIN_NOTIONAL) {
     let px = roundUp(resPx * (1 + halfSpread / 10000), m.tick);
-    px = Math.max(px, roundUp(bk.bid + m.tick, m.tick)); // Post-only ALO clamp
+    px = Math.max(px, roundUp(bk.bid + m.tick, m.tick));
     const sz = roundLot((m.baseUsd * askScale) / px, m.lot);
     if (px > 0 && sz * px >= MIN_NOTIONAL) { ask = px; askSz = sz; }
   }
-  state.quotes[m.sym] = { bid, ask, bidSz, askSz, spreadBps: halfSpread };
+
+  let status = "QUOTING";
+  if (shieldBid || shieldAsk) status = "SHIELD";
+  else if (Math.abs(rawQ) >= 0.95) status = "UNWIND";
+
+  state.quotes[m.sym] = { bid, ask, bidSz, askSz, spreadBps: halfSpread, status };
 }
 
 function checkFills(sym, tradePx) {
   const q = state.quotes[sym];
   if (!q) return;
   if (q.bid !== null && tradePx <= q.bid) {
-    applyFill(sym, "BUY", q.bid, q.bidSz);
+    applyFill(sym, "BUY", q.bid, q.bidSz, true, "MAKER");
     q.bid = null;
   } else if (q.ask !== null && tradePx >= q.ask) {
-    applyFill(sym, "SELL", q.ask, q.askSz);
+    applyFill(sym, "SELL", q.ask, q.askSz, true, "MAKER");
     q.ask = null;
   }
 }
@@ -284,9 +319,9 @@ function renderUI() {
   tpEl.textContent = `${tpnl >= 0 ? "+" : ""}$${tpnl.toFixed(4)}`;
   tpEl.className = "kpi-val " + (tpnl >= 0 ? "pos" : "neg");
 
-  document.getElementById("fills").textContent = `${state.fills} maker fills · $${state.vol.toFixed(2)} vol`;
+  document.getElementById("fills").textContent = `${state.fills} fills · $${state.vol.toFixed(2)} vol`;
   document.getElementById("f-trade").textContent = `-$${state.tradingFees.toFixed(5)}`;
-  document.getElementById("f-dd").textContent = `${(state.maxDd * 100).toFixed(3)}%`;
+  document.getElementById("f-dd").textContent = `${state.stops} stops · ${(state.maxDd * 100).toFixed(3)}%`;
   document.getElementById("tick-cnt").textContent = `${state.ticks} live ticks`;
 
   document.getElementById("mkts").innerHTML = MARKETS.map(m => {
@@ -295,11 +330,12 @@ function renderUI() {
     const p = state.pos[m.sym];
     const invUsd = bk ? p.size * bk.mid : 0;
     const invCol = invUsd > 0.5 ? "#34d399" : (invUsd < -0.5 ? "#f87171" : "#94a3b8");
+    const stCol = q.status === "SHIELD" ? "#fbbf24" : (q.status === "UNWIND" ? "#a78bfa" : "#34d399");
     return `
       <div class="mkt">
         <div class="mkt-top">
           <span class="mkt-sym">${m.sym} <span style="font-weight:400;font-size:12px;color:#94a3b8">${bk ? "$" + bk.mid.toFixed(5) : "..."}</span></span>
-          <span class="badge" style="color:#34d399;border-color:#34d399">LIVE ${q.spreadBps.toFixed(1)}b</span>
+          <span class="badge" style="color:${stCol};border-color:${stCol}">${q.status} ${q.spreadBps.toFixed(0)}b</span>
         </div>
         <div class="mkt-grid">
           <div><div class="lbl">Our Bid</div><div>${q.bid ? "$" + q.bid.toFixed(5) : "—"}</div></div>
@@ -315,7 +351,7 @@ function renderUI() {
       const c = f.side === "BUY" ? "#34d399" : "#f87171";
       return `
         <div class="fill-item">
-          <span>[${f.t}] <strong style="color:${c}">${f.side}</strong> ${f.sym}</span>
+          <span>[${f.t}] <strong style="color:${c}">${f.side}</strong> ${f.sym} (${f.tag})</span>
           <span>$${f.price.toFixed(5)} · $${f.notional.toFixed(2)} (fee $${f.fee.toFixed(4)})</span>
         </div>
       `;
@@ -347,8 +383,7 @@ function connectWS() {
       state.books[sym] = { bid, ask, mid, micro };
       const hist = state.mids[sym];
       hist.push(mid);
-      if (hist.length > 25) hist.shift();
-      // Check if live book moved across our resting quotes
+      if (hist.length > 40) hist.shift();
       checkFills(sym, ask);
       checkFills(sym, bid);
       const m = MARKETS.find(x => x.sym === sym);
