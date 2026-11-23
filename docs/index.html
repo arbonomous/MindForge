@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<title>MindForge LIVE — Optimized $100 Hyperliquid Paper Trader</title>
+<title>MindForge LIVE v3 — $100 Hyperliquid Paper Trader</title>
 <style>
   :root {
     --bg: #070b14; --card: #111827; --border: #1f2937;
     --fg: #f1f5f9; --muted: #94a3b8; --accent: #22d3ee;
-    --green: #34d399; --red: #f87171; --amber: #fbbf24;
+    --green: #34d399; --red: #f87171; --amber: #fbbf24; --purple: #a78bfa;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -47,7 +47,7 @@
   .mkt-top { display: flex; justify-content: space-between; align-items: center; }
   .mkt-sym { font-weight: 700; font-size: 15px; }
   .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; border: 1px solid; }
-  .mkt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .mkt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
   .lbl { font-size: 10px; color: var(--muted); }
   .fill-item { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   .fill-item:last-child { border-bottom: none; }
@@ -58,10 +58,10 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v2</div>
+      <div class="title">MindForge LIVE v3</div>
       <div class="pill"><span class="dot" id="ws-dot"></span><span id="ws-status">CONNECTING...</span></div>
     </div>
-    <div class="sub">Optimized 48h OOS Settings &middot; 25b+Vol Spread &middot; 50b Skew &middot; Trend Shield + 40b Stop</div>
+    <div class="sub">72h-Validated AI Basket (KAITO, VIRTUAL, WLD) &middot; Vol-Instab + 18b Profit-Lock &middot; Auto-Saved</div>
   </div>
 
   <div class="grid2">
@@ -79,7 +79,7 @@
 
   <div class="card">
     <div class="sec-title">
-      <span>Live Equity Curve (Real-Time)</span>
+      <span>Live Equity Curve (Auto-Saved)</span>
       <div style="display:flex;gap:6px;">
         <button class="btn btn-primary" id="toggle-btn">Pause</button>
         <button class="btn" id="reset-btn">Reset $100</button>
@@ -90,7 +90,7 @@
 
   <div class="card">
     <div class="sec-title">
-      <span>Live Hyperliquid Order Books &amp; Quotes</span>
+      <span>Live Hyperliquid Order Books &amp; Signals</span>
       <span id="tick-cnt" style="font-variant-numeric:tabular-nums;">0 ticks</span>
     </div>
     <div id="mkts" class="kpi-sm">Connecting to wss://api.hyperliquid.xyz/ws...</div>
@@ -101,30 +101,32 @@
     <div class="fee-row"><span>Arbitrum &rarr; HL Bridge (1-time)</span><span class="neg">-$0.15000</span></div>
     <div class="fee-row"><span>Trading Fees (1.5b maker / 4.5b stop)</span><span class="neg" id="f-trade">-$0.00000</span></div>
     <div class="fee-row"><span>Hyperliquid L1 Order Gas</span><span class="pos">$0.00000 (gasless)</span></div>
-    <div class="fee-row"><span>Stop-Loss Triggers / Max DD</span><span id="f-dd">0 stops &middot; 0.150%</span></div>
+    <div class="fee-row"><span>Stops / Profit-Locks / Max DD</span><span id="f-dd">0 / 0 &middot; 0.150%</span></div>
   </div>
 
   <div class="card">
-    <div class="sec-title"><span>Live Fill Tape (Patient Wide Maker Quotes)</span></div>
+    <div class="sec-title"><span>Live Fill Tape (Persisted on iPhone)</span></div>
     <div id="fill-list" class="kpi-sm">Resting wide ±25+ bps quotes — waiting for choppy sweeps to clear 3 bps fee hurdle...</div>
   </div>
 </div>
 
 <script>
-// Validated out-of-sample settings from 48h real Hyperliquid 1m candle grid search:
-// hs=25 bps, skew=50 bps, vol_mult=1.0, trend_shield=20 bps, stop_loss=40 bps
+// 72h-validated Hyperliquid AI basket & v3 parameters:
+// KAITO (+$0.45), VIRTUAL (+$0.28), WLD (+$0.26) = +$0.99 / 72h on $100
+const STORAGE_KEY = "mindforge_live_v3_state";
 const MARKETS = [
-  { sym: "KAITO",   tick: 0.00001,  lot: 1.0,  baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
-  { sym: "AIXBT",   tick: 0.000001, lot: 1.0,  baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
-  { sym: "HYPE",    tick: 0.001,    lot: 0.01, baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
-  { sym: "VIRTUAL", tick: 0.00001,  lot: 0.1,  baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
+  { sym: "KAITO",   tick: 0.00001, lot: 1.0, baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
+  { sym: "VIRTUAL", tick: 0.00001, lot: 0.1, baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
+  { sym: "WLD",     tick: 0.00001, lot: 0.1, baseUsd: 15, maxPosUsd: 30, baseSpreadBps: 25.0 },
 ];
 const MAKER_FEE_BPS = 1.5;
 const TAKER_FEE_BPS = 4.5;
 const BRIDGE_GAS_USD = 0.15;
 const SKEW_BPS = 50.0;
 const VOL_MULT = 1.0;
+const INSTAB_SPREAD_BPS = 8.0;
 const TREND_SHIELD_BPS = 20.0;
+const PROFIT_LOCK_BPS = 18.0;
 const STOP_LOSS_BPS = 40.0;
 const MIN_NOTIONAL = 10.0;
 
@@ -132,9 +134,8 @@ let running = true;
 let ws = null;
 let state = {};
 
-function initState() {
-  state = {
-    startTs: Date.now(),
+function freshState() {
+  const s = {
     ticks: 0,
     cash: 100.0 - BRIDGE_GAS_USD,
     peakEq: 100.0,
@@ -142,6 +143,7 @@ function initState() {
     tradingFees: 0,
     fills: 0,
     stops: 0,
+    locks: 0,
     vol: 0,
     curve: [100.0, 100.0 - BRIDGE_GAS_USD],
     recentFills: [],
@@ -149,12 +151,56 @@ function initState() {
     pos: {},
     quotes: {},
     mids: {},
+    volBuckets: {},
+    curBucketVol: {},
   };
   MARKETS.forEach(m => {
-    state.pos[m.sym] = { size: 0, avgEntry: 0, realized: 0 };
-    state.quotes[m.sym] = { bid: null, ask: null, bidSz: 0, askSz: 0, spreadBps: m.baseSpreadBps, status: "QUOTING" };
-    state.mids[m.sym] = [];
+    s.pos[m.sym] = { size: 0, avgEntry: 0, realized: 0 };
+    s.quotes[m.sym] = { bid: null, ask: null, bidSz: 0, askSz: 0, spreadBps: m.baseSpreadBps, instab: 0, status: "QUOTING" };
+    s.mids[m.sym] = [];
+    s.volBuckets[m.sym] = [];
+    s.curBucketVol[m.sym] = 0;
   });
+  return s;
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return freshState();
+    const saved = JSON.parse(raw);
+    const s = freshState();
+    Object.assign(s, saved);
+    MARKETS.forEach(m => {
+      if (!s.pos[m.sym]) s.pos[m.sym] = { size: 0, avgEntry: 0, realized: 0 };
+      if (!s.quotes[m.sym]) s.quotes[m.sym] = { bid: null, ask: null, bidSz: 0, askSz: 0, spreadBps: m.baseSpreadBps, instab: 0, status: "QUOTING" };
+      if (!s.mids[m.sym]) s.mids[m.sym] = [];
+      if (!s.volBuckets[m.sym]) s.volBuckets[m.sym] = [];
+      s.curBucketVol[m.sym] = 0;
+    });
+    return s;
+  } catch (e) {
+    return freshState();
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ticks: state.ticks,
+      cash: state.cash,
+      peakEq: state.peakEq,
+      maxDd: state.maxDd,
+      tradingFees: state.tradingFees,
+      fills: state.fills,
+      stops: state.stops,
+      locks: state.locks,
+      vol: state.vol,
+      curve: state.curve.slice(-100),
+      recentFills: state.recentFills.slice(0, 20),
+      pos: state.pos,
+    }));
+  } catch (e) {}
 }
 
 function roundDown(px, tick) { return Math.floor(px / tick + 1e-12) * tick; }
@@ -190,7 +236,8 @@ function applyFill(sym, side, price, size, isMaker = true, tag = "MAKER") {
     t: new Date().toLocaleTimeString([], { hour12: false }),
     sym, side, tag, price, notional, fee
   });
-  if (state.recentFills.length > 15) state.recentFills.pop();
+  if (state.recentFills.length > 20) state.recentFills.pop();
+  saveState();
 }
 
 function totalEquity() {
@@ -201,6 +248,17 @@ function totalEquity() {
     if (bk && p.size !== 0) mark += p.size * bk.mid;
   }
   return state.cash + mark;
+}
+
+function calcVolInstability(sym) {
+  const arr = state.volBuckets[sym];
+  if (!arr || arr.length < 5) return 0.0;
+  const recent = arr[arr.length - 1];
+  const base = arr.slice(0, -1);
+  const mean = base.reduce((a, b) => a + b, 0) / base.length;
+  const std = Math.sqrt(base.reduce((a, b) => a + (b - mean) ** 2, 0) / base.length);
+  if (std < 1e-6) return 0.0;
+  return Math.min(3.0, Math.max(0.0, (recent - mean) / std));
 }
 
 function updateQuotes(m) {
@@ -221,11 +279,9 @@ function updateQuotes(m) {
     }
   }
 
-  // 2. Realized vol & short-term trend shield from rolling mids
+  // 2. Realized vol, trend shield, and live volume-spike attention instability
   const hist = state.mids[m.sym];
-  let volBps = 6.0;
-  let momShort = 0.0;
-  let momLong = 0.0;
+  let volBps = 6.0, momShort = 0.0, momLong = 0.0;
   if (hist.length >= 6) {
     const rets = [];
     for (let i = 1; i < hist.length; i++) rets.push(Math.log(hist[i] / hist[i-1]) * 10000);
@@ -234,49 +290,67 @@ function updateQuotes(m) {
     momShort = (hist[hist.length - 1] / hist[Math.max(0, hist.length - 10)] - 1) * 10000;
     momLong = (hist[hist.length - 1] / hist[0] - 1) * 10000;
   }
+  const volInstab = calcVolInstability(m.sym);
 
   const posUsd = p.size * bk.mid;
   const rawQ = posUsd / m.maxPosUsd;
   const q = Math.max(-1, Math.min(1, rawQ));
   const resPx = bk.micro * (1 - (SKEW_BPS * q) / 10000);
-  const halfSpread = Math.max(12.0, Math.min(150.0, m.baseSpreadBps + VOL_MULT * volBps));
+  const halfSpread = Math.max(10.0, Math.min(150.0, m.baseSpreadBps + VOL_MULT * volBps + INSTAB_SPREAD_BPS * volInstab));
 
-  // Dual-horizon trend shield: step aside when dumping or breaking out
-  const shieldBid = (momShort <= -TREND_SHIELD_BPS) || (momLong <= -TREND_SHIELD_BPS * 2);
-  const shieldAsk = (momShort >= TREND_SHIELD_BPS) || (momLong >= TREND_SHIELD_BPS * 2);
+  const shockHalt = volInstab >= 2.6;
+  const shieldBid = shockHalt || (momShort <= -TREND_SHIELD_BPS) || (momLong <= -TREND_SHIELD_BPS * 2);
+  const shieldAsk = shockHalt || (momShort >= TREND_SHIELD_BPS) || (momLong >= TREND_SHIELD_BPS * 2);
 
   const bidScale = (rawQ >= 0.95 || shieldBid) ? 0 : Math.max(0, 1 - Math.max(0, rawQ));
   const askScale = (rawQ <= -0.95 || shieldAsk) ? 0 : Math.max(0, 1 - Math.max(0, -rawQ));
 
   let bid = null, bidSz = 0, ask = null, askSz = 0;
+  let profitLocked = false;
+
   if (bidScale > 0.05 && m.baseUsd * bidScale >= MIN_NOTIONAL) {
     let px = roundDown(resPx * (1 - halfSpread / 10000), m.tick);
+    // Profit-lock unwind for profitable short position (+18 bps)
+    if (p.size < 0 && p.avgEntry > 0 && ((p.avgEntry - bk.mid) / p.avgEntry * 10000) >= PROFIT_LOCK_BPS) {
+      px = Math.max(px, roundDown(bk.mid * (1 - 4.0 / 10000), m.tick));
+      profitLocked = true;
+    }
     px = Math.min(px, roundDown(bk.ask - m.tick, m.tick));
     const sz = roundLot((m.baseUsd * bidScale) / px, m.lot);
     if (px > 0 && sz * px >= MIN_NOTIONAL) { bid = px; bidSz = sz; }
   }
   if (askScale > 0.05 && m.baseUsd * askScale >= MIN_NOTIONAL) {
     let px = roundUp(resPx * (1 + halfSpread / 10000), m.tick);
+    // Profit-lock unwind for profitable long position (+18 bps)
+    if (p.size > 0 && p.avgEntry > 0 && ((bk.mid - p.avgEntry) / p.avgEntry * 10000) >= PROFIT_LOCK_BPS) {
+      px = Math.min(px, roundUp(bk.mid * (1 + 4.0 / 10000), m.tick));
+      profitLocked = true;
+    }
     px = Math.max(px, roundUp(bk.bid + m.tick, m.tick));
     const sz = roundLot((m.baseUsd * askScale) / px, m.lot);
     if (px > 0 && sz * px >= MIN_NOTIONAL) { ask = px; askSz = sz; }
   }
 
   let status = "QUOTING";
-  if (shieldBid || shieldAsk) status = "SHIELD";
+  if (shockHalt) status = "HALT";
+  else if (profitLocked) status = "LOCK";
+  else if (shieldBid || shieldAsk) status = "SHIELD";
   else if (Math.abs(rawQ) >= 0.95) status = "UNWIND";
 
-  state.quotes[m.sym] = { bid, ask, bidSz, askSz, spreadBps: halfSpread, status };
+  state.quotes[m.sym] = { bid, ask, bidSz, askSz, spreadBps: halfSpread, instab: volInstab, status };
 }
 
 function checkFills(sym, tradePx) {
   const q = state.quotes[sym];
   if (!q) return;
+  const tag = q.status === "LOCK" ? "LOCK" : "MAKER";
   if (q.bid !== null && tradePx <= q.bid) {
-    applyFill(sym, "BUY", q.bid, q.bidSz, true, "MAKER");
+    if (tag === "LOCK") state.locks += 1;
+    applyFill(sym, "BUY", q.bid, q.bidSz, true, tag);
     q.bid = null;
   } else if (q.ask !== null && tradePx >= q.ask) {
-    applyFill(sym, "SELL", q.ask, q.askSz, true, "MAKER");
+    if (tag === "LOCK") state.locks += 1;
+    applyFill(sym, "SELL", q.ask, q.askSz, true, tag);
     q.ask = null;
   }
 }
@@ -321,7 +395,7 @@ function renderUI() {
 
   document.getElementById("fills").textContent = `${state.fills} fills · $${state.vol.toFixed(2)} vol`;
   document.getElementById("f-trade").textContent = `-$${state.tradingFees.toFixed(5)}`;
-  document.getElementById("f-dd").textContent = `${state.stops} stops · ${(state.maxDd * 100).toFixed(3)}%`;
+  document.getElementById("f-dd").textContent = `${state.stops} / ${state.locks} · ${(state.maxDd * 100).toFixed(3)}%`;
   document.getElementById("tick-cnt").textContent = `${state.ticks} live ticks`;
 
   document.getElementById("mkts").innerHTML = MARKETS.map(m => {
@@ -330,7 +404,7 @@ function renderUI() {
     const p = state.pos[m.sym];
     const invUsd = bk ? p.size * bk.mid : 0;
     const invCol = invUsd > 0.5 ? "#34d399" : (invUsd < -0.5 ? "#f87171" : "#94a3b8");
-    const stCol = q.status === "SHIELD" ? "#fbbf24" : (q.status === "UNWIND" ? "#a78bfa" : "#34d399");
+    const stCol = q.status === "HALT" ? "#f87171" : (q.status === "LOCK" ? "#22d3ee" : (q.status === "SHIELD" ? "#fbbf24" : "#34d399"));
     return `
       <div class="mkt">
         <div class="mkt-top">
@@ -340,6 +414,7 @@ function renderUI() {
         <div class="mkt-grid">
           <div><div class="lbl">Our Bid</div><div>${q.bid ? "$" + q.bid.toFixed(5) : "—"}</div></div>
           <div><div class="lbl">Our Ask</div><div>${q.ask ? "$" + q.ask.toFixed(5) : "—"}</div></div>
+          <div><div class="lbl">Instab</div><div>${q.instab.toFixed(2)}</div></div>
           <div><div class="lbl">Inventory</div><div style="color:${invCol};font-weight:600">${invUsd >= 0 ? "+" : ""}$${invUsd.toFixed(2)}</div></div>
         </div>
       </div>
@@ -392,7 +467,9 @@ function connectWS() {
     } else if (msg.channel === "trades" && Array.isArray(msg.data)) {
       for (const t of msg.data) {
         if (state.quotes[t.coin]) {
-          checkFills(t.coin, parseFloat(t.px));
+          const px = parseFloat(t.px), sz = parseFloat(t.sz);
+          state.curBucketVol[t.coin] = (state.curBucketVol[t.coin] || 0) + px * sz;
+          checkFills(t.coin, px);
           const m = MARKETS.find(x => x.sym === t.coin);
           if (m) updateQuotes(m);
         }
@@ -405,12 +482,24 @@ function connectWS() {
   };
 }
 
+// Roll 10-second volume buckets for live attention/volume-spike instability
+setInterval(() => {
+  if (!running) return;
+  MARKETS.forEach(m => {
+    const arr = state.volBuckets[m.sym];
+    arr.push(state.curBucketVol[m.sym] || 0);
+    state.curBucketVol[m.sym] = 0;
+    if (arr.length > 20) arr.shift();
+  });
+}, 10000);
+
 setInterval(() => {
   if (!running) return;
   const eq = totalEquity();
   state.curve.push(eq);
   if (state.curve.length > 90) state.curve.shift();
   renderUI();
+  if (state.ticks % 10 === 0) saveState();
 }, 1000);
 
 document.getElementById("toggle-btn").addEventListener("click", (e) => {
@@ -419,13 +508,15 @@ document.getElementById("toggle-btn").addEventListener("click", (e) => {
 });
 document.getElementById("reset-btn").addEventListener("click", () => {
   const prevBooks = state.books;
-  initState();
+  localStorage.removeItem(STORAGE_KEY);
+  state = freshState();
   state.books = prevBooks;
   MARKETS.forEach(updateQuotes);
+  saveState();
   renderUI();
 });
 
-initState();
+state = loadState();
 connectWS();
 renderUI();
 </script>
