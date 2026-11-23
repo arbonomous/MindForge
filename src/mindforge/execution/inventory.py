@@ -67,10 +67,22 @@ class PaperInventory(InventorySource):
                 pos.avg_entry_price = fill.price
             pos.size = new_size
 
-        pos.fees_usd += fill.fee_usd
-        # Cash impact: buying spends cash, selling receives cash, minus fees (rebates add cash)
+        pos.fees_usd += fill.fee_usd + fill.gas_usd
+        # Cash impact: buying spends cash, selling receives cash, minus trading fees & gas
         self.cash_usd -= qty_delta * fill.price
-        self.cash_usd -= fill.fee_usd
+        self.cash_usd -= fill.fee_usd + fill.gas_usd
+
+    def apply_funding(self, symbol: str, mark_price: float, hourly_rate: float, dt_seconds: float) -> float:
+        """Apply pro-rated perp funding payment on an open position (positive rate = longs pay shorts)."""
+        pos = self.get_position(symbol)
+        if pos.size == 0.0 or dt_seconds <= 0 or hourly_rate == 0.0:
+            return 0.0
+        notional = pos.notional_usd(mark_price)
+        # Long pays when funding > 0; short receives when funding > 0
+        funding_cost = notional * hourly_rate * (dt_seconds / 3600.0)
+        self.cash_usd -= funding_cost
+        pos.fees_usd += funding_cost
+        return funding_cost
 
     def total_realized_pnl_usd(self) -> float:
         return sum(p.realized_pnl_usd - p.fees_usd for p in self._positions.values())

@@ -59,6 +59,8 @@ class QuotingEngine:
         fv: FairValueEstimate,
         position: Position,
         risk: RiskDecision,
+        best_bid: float | None = None,
+        best_ask: float | None = None,
     ) -> QuotePlan:
         """Compute target bid/ask ladders for a single market."""
         if not risk.can_quote or fv.fair_value <= 0:
@@ -130,6 +132,13 @@ class QuotingEngine:
                     reservation_price * (1.0 - level_offset_bps / 10_000.0),
                     market.tick_size,
                 )
+                # Post-only guard: never cross best_ask and pay taker fees
+                if self.config.post_only and best_ask is not None and best_ask > market.tick_size:
+                    max_passive_bid = _round_down_tick(
+                        best_ask - market.tick_size * (1 + level),
+                        market.tick_size,
+                    )
+                    bid_px = min(bid_px, max_passive_bid)
                 bid_usd = base_clip_usd * bid_side_scale
                 if bid_px > 0 and bid_usd >= market.min_notional_usd:
                     bid_sz = _round_lot(bid_usd / bid_px, market.lot_size)
@@ -151,6 +160,13 @@ class QuotingEngine:
                     reservation_price * (1.0 + level_offset_bps / 10_000.0),
                     market.tick_size,
                 )
+                # Post-only guard: never cross best_bid and pay taker fees
+                if self.config.post_only and best_bid is not None and best_bid > 0:
+                    min_passive_ask = _round_up_tick(
+                        best_bid + market.tick_size * (1 + level),
+                        market.tick_size,
+                    )
+                    ask_px = max(ask_px, min_passive_ask)
                 ask_usd = base_clip_usd * ask_side_scale
                 if ask_px > 0 and ask_usd >= market.min_notional_usd:
                     ask_sz = _round_lot(ask_usd / ask_px, market.lot_size)

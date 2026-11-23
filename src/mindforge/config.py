@@ -97,6 +97,10 @@ class QuotingConfig(BaseModel):
     max_half_spread_bps: float = Field(default=250.0, gt=0.0)
     levels_per_side: int = Field(default=2, ge=1, le=5)
     level_spacing_bps: float = Field(default=10.0, gt=0.0)
+    post_only: bool = Field(
+        default=True,
+        description="Clamp bids <= best_ask - tick and asks >= best_bid + tick so quotes never pay taker fees.",
+    )
 
 
 class RiskConfig(BaseModel):
@@ -160,8 +164,26 @@ class ExecutionConfig(BaseModel):
         description="Safety guard: prevents live order placement even on the Hyperliquid connector.",
     )
     maker_fee_bps: float = Field(
-        default=-0.5,
-        description="Negative = maker rebate (bps), positive = fee (bps).",
+        default=1.5,
+        description="Maker trading fee in bps (Hyperliquid Tier-0 retail = +1.5 bps; negative = rebate).",
+    )
+    taker_fee_bps: float = Field(
+        default=4.5,
+        description="Taker trading fee in bps if a quote crosses the spread (Hyperliquid Tier-0 = +4.5 bps).",
+    )
+    gas_fee_per_tx_usd: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Per-transaction on-chain gas cost in USD ($0.00 on Hyperliquid L1; e.g. $0.005 on Solana/L2).",
+    )
+    bridge_gas_usd: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Optional one-time deposit/bridge gas cost deducted at startup (e.g. $0.15 Arbitrum->HL).",
+    )
+    realistic_live_fills: bool = Field(
+        default=False,
+        description="When True, paper fills ONLY occur when real market trades or book prices cross resting quotes.",
     )
     fill_probability_base: float = Field(default=0.35, gt=0.0, le=1.0)
     tick_interval_sec: float = Field(default=0.5, gt=0.0)

@@ -147,6 +147,9 @@ def run(
             testnet=cfg.execution.hyperliquid_testnet,
             vault_address=cfg.vault.vault_address,
             maker_fee_bps=cfg.execution.maker_fee_bps,
+            taker_fee_bps=cfg.execution.taker_fee_bps,
+            gas_fee_per_tx_usd=cfg.execution.gas_fee_per_tx_usd,
+            realistic_live_fills=cfg.execution.realistic_live_fills,
         )
         mode_label = "HL-DRY-RUN" if cfg.execution.dry_run else "HL-LIVE"
     else:

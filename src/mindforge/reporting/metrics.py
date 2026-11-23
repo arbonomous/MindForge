@@ -65,7 +65,7 @@ class PerformanceTracker:
             self.fills.append(f)
             self.total_fills += 1
             self.total_volume_usd += f.notional_usd
-            self.total_fees_usd += f.fee_usd
+            self.total_fees_usd += f.fee_usd + f.gas_usd
 
     def record_tick(
         self,

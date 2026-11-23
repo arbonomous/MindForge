@@ -18,7 +18,14 @@ import httpx
 import websockets
 
 from mindforge.data.base import MarketDataFeed
-from mindforge.types import FundingSnapshot, OrderBookLevel, OrderBookSnapshot, utc_now
+from mindforge.types import (
+    FundingSnapshot,
+    OrderBookLevel,
+    OrderBookSnapshot,
+    Side,
+    TradeTick,
+    utc_now,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +49,7 @@ class HyperliquidDataFeed(MarketDataFeed):
 
         self._books: dict[str, OrderBookSnapshot] = {}
         self._funding: dict[str, FundingSnapshot] = {}
+        self._trades: dict[str, list[TradeTick]] = {s: [] for s in symbols}
         self._client = httpx.AsyncClient(timeout=10.0)
         self._tasks: list[asyncio.Task[None]] = []
         self._running = False
@@ -75,6 +83,12 @@ class HyperliquidDataFeed(MarketDataFeed):
 
     async def get_funding(self, symbol: str) -> FundingSnapshot | None:
         return self._funding.get(symbol)
+
+    def drain_recent_trades(self, symbol: str) -> list[TradeTick]:
+        """Return and clear live market trades observed since the last call."""
+        trades = self._trades.get(symbol, [])
+        self._trades[symbol] = []
+        return trades
 
     async def _fetch_book_rest(self, symbol: str) -> None:
         try:
@@ -127,21 +141,53 @@ class HyperliquidDataFeed(MarketDataFeed):
                 async with websockets.connect(self.ws_url, ping_interval=20, ping_timeout=20) as ws:
                     backoff = 1.0
                     for sym in self.symbols:
-                        sub_msg = {
-                            "method": "subscribe",
-                            "subscription": {"type": "l2Book", "coin": sym},
-                        }
-                        await ws.send(json.dumps(sub_msg))
+                        await ws.send(
+                            json.dumps(
+                                {
+                                    "method": "subscribe",
+                                    "subscription": {"type": "l2Book", "coin": sym},
+                                }
+                            )
+                        )
+                        await ws.send(
+                            json.dumps(
+                                {
+                                    "method": "subscribe",
+                                    "subscription": {"type": "trades", "coin": sym},
+                                }
+                            )
+                        )
 
                     async for raw in ws:
                         if not self._running:
                             break
                         msg = json.loads(raw)
-                        if msg.get("channel") == "l2Book":
+                        channel = msg.get("channel")
+                        if channel == "l2Book":
                             data = msg.get("data", {})
                             coin = data.get("coin")
                             if coin:
                                 self._ingest_l2_payload(coin, data)
+                        elif channel == "trades":
+                            for t in msg.get("data", []):
+                                coin = t.get("coin")
+                                if coin in self._trades:
+                                    ts_ms = t.get("time")
+                                    ts = (
+                                        datetime.fromtimestamp(ts_ms / 1000.0, tz=UTC)
+                                        if ts_ms
+                                        else utc_now()
+                                    )
+                                    side = Side.BUY if t.get("side") == "B" else Side.SELL
+                                    self._trades[coin].append(
+                                        TradeTick(
+                                            symbol=coin,
+                                            price=float(t["px"]),
+                                            size=float(t["sz"]),
+                                            side=side,
+                                            timestamp=ts,
+                                        )
+                                    )
             except asyncio.CancelledError:
                 break
             except Exception as exc:

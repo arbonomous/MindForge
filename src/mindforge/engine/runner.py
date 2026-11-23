@@ -56,6 +56,15 @@ class MindForgeEngine:
         self.tracker = PerformanceTracker(starting_equity_usd=config.vault.starting_equity_usd)
         self.dashboard = RichDashboard(agent_name=config.agent_name, mode_label=mode_label)
         self._step = 0
+        self._last_cycle_time: datetime | None = None
+        self.total_funding_paid_usd = 0.0
+        self.bridge_gas_paid_usd = 0.0
+
+        # Account for one-time deposit/bridge gas upfront (e.g. Arbitrum -> Hyperliquid USDC)
+        if config.execution.bridge_gas_usd > 0 and isinstance(self.inventory, PaperInventory):
+            self.inventory.cash_usd -= config.execution.bridge_gas_usd
+            self.tracker.total_fees_usd += config.execution.bridge_gas_usd
+            self.bridge_gas_paid_usd = config.execution.bridge_gas_usd
 
     async def step_once(self, now: datetime | None = None) -> list[MarketDisplayRow]:
         """Run one complete quoting + risk + execution cycle across all configured markets."""
@@ -63,7 +72,7 @@ class MindForgeEngine:
         mark_prices: dict[str, float] = {}
         books = {}
 
-        # 1. Fetch latest order books for all markets
+        # 1. Fetch latest order books & check resting fills against real live trades
         for m in self.config.markets:
             book = await self.market_feed.get_order_book(m.symbol)
             if book is not None and book.microprice > 0:
@@ -71,10 +80,44 @@ class MindForgeEngine:
                 mark_prices[m.symbol] = book.microprice
                 self.risk.update_markouts(m.symbol, book.mid_price)
 
+                # If feed streams live trades (e.g. HyperliquidDataFeed), check resting quotes first
+                recent_trades = (
+                    self.market_feed.drain_recent_trades(m.symbol)
+                    if hasattr(self.market_feed, "drain_recent_trades")
+                    else []
+                )
+                if hasattr(self.execution, "check_resting_fills"):
+                    resting_fills = self.execution.check_resting_fills(m.symbol, book, recent_trades)
+                    if resting_fills:
+                        self.tracker.record_fills(resting_fills)
+                        for f in resting_fills:
+                            self.risk.record_fill(f)
+
         if not books:
             return []
 
         cycle_time = now or next(iter(books.values())).timestamp or utc_now()
+        dt_sec = (
+            max(0.0, (cycle_time - self._last_cycle_time).total_seconds())
+            if self._last_cycle_time is not None
+            else 0.0
+        )
+        self._last_cycle_time = cycle_time
+
+        # Apply pro-rated perp funding on any held positions
+        if dt_sec > 0 and isinstance(self.inventory, PaperInventory):
+            for sym, book in books.items():
+                funding = await self.market_feed.get_funding(sym)
+                if funding is not None:
+                    f_cost = self.inventory.apply_funding(
+                        sym,
+                        book.mid_price,
+                        funding.hourly_rate,
+                        dt_sec,
+                    )
+                    self.total_funding_paid_usd += f_cost
+                    self.tracker.total_fees_usd += f_cost
+
         total_equity = self.inventory.total_equity_usd(mark_prices)
         gross_exposure = self.inventory.gross_exposure_usd(mark_prices)
 
@@ -116,7 +159,14 @@ class MindForgeEngine:
                 now=cycle_time,
             )
 
-            plan = self.quoting.build_quotes(m, fv, position, decision)
+            plan = self.quoting.build_quotes(
+                m,
+                fv,
+                position,
+                decision,
+                best_bid=book.best_bid,
+                best_ask=book.best_ask,
+            )
 
             if not decision.can_quote:
                 await self.execution.cancel_all(m.symbol)

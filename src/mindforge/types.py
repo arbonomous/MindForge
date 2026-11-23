@@ -194,14 +194,20 @@ class FillEvent:
     side: Side
     price: float
     size: float
-    fee_usd: float  # Negative for maker rebate, positive for fee
+    fee_usd: float  # Trading fee in USD (negative for maker rebate, positive for fee)
     order_id: str
     mid_at_fill: float
     timestamp: datetime = field(default_factory=utc_now)
+    gas_usd: float = 0.0  # Per-transaction on-chain gas fee (USD)
+    is_maker: bool = True
 
     @property
     def notional_usd(self) -> float:
         return self.price * self.size
+
+    @property
+    def total_cost_usd(self) -> float:
+        return self.fee_usd + self.gas_usd
 
 
 @dataclass

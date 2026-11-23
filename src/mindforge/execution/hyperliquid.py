@@ -36,7 +36,10 @@ class HyperliquidExecutionVenue(ExecutionVenue):
         vault_address: str | None = None,
         signer: OrderSigner | None = None,
         asset_index_map: dict[str, int] | None = None,
-        maker_fee_bps: float = -0.2,
+        maker_fee_bps: float = 1.5,
+        taker_fee_bps: float = 4.5,
+        gas_fee_per_tx_usd: float = 0.0,
+        realistic_live_fills: bool = True,
     ) -> None:
         self.inventory = inventory
         self.dry_run = dry_run
@@ -53,6 +56,9 @@ class HyperliquidExecutionVenue(ExecutionVenue):
         self._paper_fallback = PaperExecutionVenue(
             inventory=inventory,
             maker_fee_bps=maker_fee_bps,
+            taker_fee_bps=taker_fee_bps,
+            gas_fee_per_tx_usd=gas_fee_per_tx_usd,
+            realistic_live_fills=realistic_live_fills,
         )
         self._open_orders: dict[str, list[QuoteOrder]] = {}
 
@@ -82,6 +88,16 @@ class HyperliquidExecutionVenue(ExecutionVenue):
             "orders": orders_wire,
             "grouping": "na",
         }
+
+    def check_resting_fills(
+        self,
+        symbol: str,
+        book: OrderBookSnapshot,
+        recent_trades: list | None = None,
+    ) -> list[FillEvent]:
+        if self.dry_run:
+            return self._paper_fallback.check_resting_fills(symbol, book, recent_trades)
+        return []
 
     async def place_quotes(
         self,
