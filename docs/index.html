@@ -65,7 +65,7 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v5.1</div>
+      <div class="title">MindForge LIVE v5.2</div>
       <div class="pill"><span class="dot" id="ws-dot"></span><span id="ws-status">CONNECTING...</span></div>
     </div>
     <div class="sub">Dual-Venue 50/50 ($50 HL + $50 Polymarket) &middot; De-Meaned CB Shock &middot; Non-Sports PM Only</div>
@@ -277,16 +277,22 @@ function hlEquity() {
   for (const m of HL_MARKETS) {
     const bk = state.hlBooks[m.sym];
     const p = state.hlPos[m.sym];
-    if (bk && p.size !== 0) mark += p.size * bk.mid;
+    if (p && p.size !== 0) {
+      const px = bk ? bk.mid : p.avgEntry;
+      if (px > 0) mark += p.size * px;
+    }
   }
   return state.hlCash + mark;
 }
 
 function pmEquity() {
   let mark = 0;
-  for (const pm of pmMarkets) {
-    const p = state.pmPos[pm.tid];
-    if (p && p.size !== 0 && pm.mid > 0) mark += p.size * pm.mid;
+  for (const [tid, p] of Object.entries(state.pmPos || {})) {
+    if (p && p.size !== 0) {
+      const pm = pmMarkets.find(x => x.tid === tid);
+      const px = (pm && pm.mid > 0) ? pm.mid : p.avgEntry;
+      if (px > 0) mark += p.size * px;
+    }
   }
   return state.pmCash + state.pmLpRewards + mark;
 }
@@ -304,10 +310,16 @@ function hlGrossExposure() {
 }
 
 function checkPortfolioKillSwitch() {
-  if (state.killReason) return true;
+  if (state.hlTicks < 3) return false; // Wait for live books to hydrate on reload
   const eq = totalEquity();
   if (eq > state.peakEq) state.peakEq = eq;
   const dd = (state.peakEq - eq) / state.peakEq;
+  // Auto-clear false reload halt if equity is actually healthy
+  if (state.killReason && dd < MAX_DRAWDOWN_PCT && (100.0 - eq) / 100.0 < MAX_DAILY_LOSS_PCT) {
+    state.killReason = null;
+    state.maxDd = dd;
+  }
+  if (state.killReason) return true;
   if (dd > state.maxDd) state.maxDd = dd;
   if (dd >= MAX_DRAWDOWN_PCT) {
     state.killReason = `10% Max Drawdown Kill Switch triggered (${(dd*100).toFixed(2)}%)`;
