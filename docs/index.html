@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<title>MindForge LIVE v5 — Dual-Venue (Hyperliquid + Polymarket)</title>
+<title>MindForge LIVE v6 — 100% Hyperliquid ($100 Paper)</title>
 <style>
   :root {
     --bg: #070b14; --card: #111827; --border: #1f2937;
@@ -16,41 +16,38 @@
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
     background: var(--bg); color: var(--fg); line-height: 1.4;
   }
-  .wrap { max-width: 580px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+  .wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
   .header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .title { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: -0.01em; }
   .pill {
-    display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700;
-    padding: 4px 9px; border-radius: 999px; background: rgba(52,211,153,0.12);
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border-radius: 999px; background: rgba(52,211,153,0.12);
     color: var(--green); border: 1px solid rgba(52,211,153,0.35);
   }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 1.2s infinite; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
   .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 13px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
   .kpi-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-  .kpi-val { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
-  .kpi-sm { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi-sm { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
   .pos { color: var(--green); }
   .neg { color: var(--red); }
-  .warn { color: var(--amber); }
   .sec-title { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 9px; }
   .btn {
     background: #1e293b; color: var(--fg); border: 1px solid var(--border);
     border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer;
   }
   .btn-primary { background: var(--accent); color: #082f49; border-color: var(--accent); }
-  .fee-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .fee-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   .fee-row:last-child { border-bottom: none; }
-  .mkt { padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .mkt { padding: 10px 0; border-bottom: 1px solid var(--border); }
   .mkt:last-child { border-bottom: none; padding-bottom: 0; }
-  .mkt-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .mkt-sym { font-weight: 700; font-size: 14px; }
-  .pm-q { font-weight: 600; font-size: 12px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-  .badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; border: 1px solid; shrink: 0; }
-  .mkt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .mkt-top { display: flex; justify-content: space-between; align-items: center; }
+  .mkt-sym { font-weight: 700; font-size: 15px; }
+  .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; border: 1px solid; }
+  .mkt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 7px; font-size: 11px; font-variant-numeric: tabular-nums; }
   .lbl { font-size: 10px; color: var(--muted); }
   .fill-item { display: flex; justify-content: space-between; font-size: 11px; padding: 5px 0; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   .fill-item:last-child { border-bottom: none; }
@@ -58,27 +55,26 @@
     display: none; background: rgba(248,113,113,0.14); border: 1px solid var(--red);
     color: var(--red); border-radius: 10px; padding: 10px 12px; font-size: 12px; font-weight: 600;
   }
-  svg { width: 100%; height: 92px; display: block; }
+  svg { width: 100%; height: 96px; display: block; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v5.2</div>
-      <div class="pill"><span class="dot" id="ws-dot"></span><span id="ws-status">CONNECTING...</span></div>
+      <div class="title">MindForge LIVE v6</div>
+      <div class="pill"><span class="dot"></span><span id="ws-status">CONNECTING...</span></div>
     </div>
-    <div class="sub">Dual-Venue 50/50 ($50 HL + $50 Polymarket) &middot; De-Meaned CB Shock &middot; Non-Sports PM Only</div>
+    <div class="sub">100% Hyperliquid ($100) &middot; 2-Level Ladder &middot; De-Meaned Coinbase Spot Lead-Lag</div>
   </div>
 
   <div id="kill-banner" class="kill-banner"></div>
 
-  <!-- Combined Portfolio KPIs -->
   <div class="grid2">
     <div class="card">
-      <div class="kpi-lbl">Total Equity ($100 Start)</div>
-      <div class="kpi-val" id="eq">$99.8000</div>
-      <div class="kpi-sm neg" id="pnl">Net: -$0.2000 (-0.200%)</div>
+      <div class="kpi-lbl">Live Equity ($100 Start)</div>
+      <div class="kpi-val" id="eq">$99.8500</div>
+      <div class="kpi-sm neg" id="pnl">Net: -$0.1500 (-0.150%)</div>
     </div>
     <div class="card">
       <div class="kpi-lbl">Trading PnL (Ex-Bridge)</div>
@@ -87,85 +83,55 @@
     </div>
   </div>
 
-  <!-- Sleeve Breakdown -->
-  <div class="grid2">
-    <div class="card">
-      <div class="kpi-lbl">Hyperliquid Sleeve ($50)</div>
-      <div class="kpi-val" style="font-size:16px;" id="hl-eq">$49.8500</div>
-      <div class="kpi-sm" id="hl-meta">CB Lead-Lag &middot; 1.5b maker</div>
-    </div>
-    <div class="card">
-      <div class="kpi-lbl">Polymarket Sleeve ($50)</div>
-      <div class="kpi-val" style="font-size:16px;" id="pm-eq">$49.9500</div>
-      <div class="kpi-sm" id="pm-meta">0% maker &middot; +$0.0000 LP</div>
-    </div>
-  </div>
-
-  <!-- Equity Curve -->
   <div class="card">
     <div class="sec-title">
-      <span>Combined Live Equity Curve</span>
+      <span>Live Equity Curve (Auto-Saved)</span>
       <div style="display:flex;gap:6px;">
         <button class="btn btn-primary" id="toggle-btn">Pause</button>
         <button class="btn" id="reset-btn">Reset $100</button>
       </div>
     </div>
-    <svg id="spark" viewBox="0 0 360 92"></svg>
+    <svg id="spark" viewBox="0 0 360 96"></svg>
   </div>
 
-  <!-- Sleeve 1: Hyperliquid + Coinbase Lead-Lag -->
   <div class="card">
     <div class="sec-title">
-      <span>Hyperliquid Perps + Coinbase Spot Lead-Lag</span>
-      <span id="hl-ticks" style="font-variant-numeric:tabular-nums;">0 ticks</span>
+      <span>Hyperliquid 2-Level Quotes + Coinbase Shock</span>
+      <span id="tick-cnt" style="font-variant-numeric:tabular-nums;">0 ticks</span>
     </div>
-    <div id="hl-mkts" class="kpi-sm">Connecting to Hyperliquid &amp; Coinbase WebSockets...</div>
+    <div id="mkts" class="kpi-sm">Connecting to Hyperliquid &amp; Coinbase WebSockets...</div>
   </div>
 
-  <!-- Sleeve 2: Polymarket CLOB (0% Maker Fee) -->
   <div class="card">
     <div class="sec-title">
-      <span>Polymarket CLOB (0% Maker Fee + LP Rewards)</span>
-      <span id="pm-status" style="font-variant-numeric:tabular-nums;">Loading...</span>
-    </div>
-    <div id="pm-mkts" class="kpi-sm">Discovering top active binary markets on Polymarket...</div>
-  </div>
-
-  <!-- 1-Week Graduation Tracker & Fee Breakdown -->
-  <div class="card">
-    <div class="sec-title">
-      <span>1-Week Testnet Graduation Tracker &amp; Costs</span>
-      <span id="grad-badge" class="badge" style="color:var(--amber);border-color:var(--amber);">PAPER VALIDATING</span>
+      <span>1-Week Testnet Graduation &amp; Real Costs</span>
+      <span id="grad-badge" class="badge" style="color:var(--amber);border-color:var(--amber);">VALIDATING</span>
     </div>
     <div class="fee-row"><span>Session Runtime / Fills</span><span id="g-time">0m &middot; 0 fills</span></div>
-    <div class="fee-row"><span>Bridge Gas (Arb $0.15 + Poly $0.05)</span><span class="neg">-$0.20000</span></div>
-    <div class="fee-row"><span>HL Trading Fees (1.5b M / 4.5b Stop)</span><span class="neg" id="f-trade">-$0.00000</span></div>
-    <div class="fee-row"><span>Polymarket Fees / Est. LP Rewards</span><span class="pos" id="f-pm">$0.00 / +$0.0000</span></div>
-    <div class="fee-row"><span>Stops / Profit-Locks / Max DD (10% Kill)</span><span id="f-dd">0 / 0 &middot; 0.20%</span></div>
+    <div class="fee-row"><span>Arbitrum &rarr; HL Bridge (1-time)</span><span class="neg">-$0.15000</span></div>
+    <div class="fee-row"><span>Trading Fees (1.5b M / 4.5b Stop)</span><span class="neg" id="f-trade">-$0.00000</span></div>
+    <div class="fee-row"><span>Hyperliquid L1 Order Gas</span><span class="pos">$0.00000 (gasless)</span></div>
+    <div class="fee-row"><span>Stops / Profit-Locks / Max DD</span><span id="f-dd">0 / 0 &middot; 0.15%</span></div>
   </div>
 
-  <!-- Live Fill Tape -->
   <div class="card">
-    <div class="sec-title"><span>Live Multi-Venue Fill Tape (Auto-Saved)</span></div>
-    <div id="fill-list" class="kpi-sm">Quoting live on Hyperliquid &amp; Polymarket — waiting for fills...</div>
+    <div class="sec-title"><span>Live Fill Tape (Persisted on iPhone)</span></div>
+    <div id="fill-list" class="kpi-sm">Resting 2-level L1/L2 maker ladders on Hyperliquid...</div>
   </div>
 </div>
 
 <script>
-const STORAGE_KEY = "mindforge_live_v51_state";
+const STORAGE_KEY = "mindforge_live_v6_hl_state";
 
-// Sleeve 1: Hyperliquid Perps ($50) + De-Meaned Coinbase Spot Shock Signal
-const HL_MARKETS = [
+const MARKETS = [
   { sym: "KAITO",   cb: "KAITO-USD",   tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
   { sym: "FET",     cb: "FET-USD",     tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
   { sym: "VIRTUAL", cb: "VIRTUAL-USD", tick: 0.00001, lot: 0.1, baseSpreadBps: 22.0 },
   { sym: "DOGE",    cb: "DOGE-USD",    tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
 ];
-const HL_BRIDGE_GAS = 0.15;
-const PM_BRIDGE_GAS = 0.05;
-const TOTAL_BRIDGE_GAS = HL_BRIDGE_GAS + PM_BRIDGE_GAS;
-const HL_MAKER_BPS = 1.5;
-const HL_TAKER_BPS = 4.5;
+const BRIDGE_GAS_USD = 0.15;
+const MAKER_FEE_BPS = 1.5;
+const TAKER_FEE_BPS = 4.5;
 const SKEW_BPS = 50.0;
 const VOL_MULT = 1.0;
 const INSTAB_SPREAD_BPS = 8.0;
@@ -173,50 +139,46 @@ const L2_EXTRA_BPS = 16.0;
 const TREND_SHIELD_BPS = 20.0;
 const PROFIT_LOCK_BPS = 16.0;
 const STOP_LOSS_BPS = 40.0;
-const CB_LEAD_CANCEL_BPS = 10.0;
-const MAX_DAILY_LOSS_PCT = 0.05;  // 5% daily loss kill switch
-const MAX_DRAWDOWN_PCT = 0.10;    // 10% peak-to-trough kill switch
-const SPORTS_RE = /\b(vs\.?|spread|o\/u|over\/under|nba|nfl|nhl|mlb|ncaa|ufc|fc|united|lakers|celtics|76ers|blazers|bengals|thunder|pacers|game \d|match|set \d|win on 202)\b/i;
+const CB_SHOCK_CANCEL_BPS = 10.0;
+const MAX_DAILY_LOSS_PCT = 0.05;  // 5% daily loss limit
+const MAX_DRAWDOWN_PCT = 0.10;    // 10% max drawdown kill switch
+const MIN_NOTIONAL = 10.0;
 
 let running = true;
 let hlWs = null;
 let cbWs = null;
-let pmMarkets = [];
 let state = {};
 
 function freshState() {
   const s = {
     startedAt: Date.now(),
-    hlTicks: 0,
-    cbConnected: false,
+    ticks: 0,
     hlConnected: false,
+    cbConnected: false,
     killReason: null,
-    hlCash: 50.0 - HL_BRIDGE_GAS,
-    pmCash: 50.0 - PM_BRIDGE_GAS,
-    pmLpRewards: 0.0,
+    cash: 100.0 - BRIDGE_GAS_USD,
     peakEq: 100.0,
-    maxDd: TOTAL_BRIDGE_GAS / 100.0,
-    hlFees: 0,
+    maxDd: BRIDGE_GAS_USD / 100.0,
+    tradingFees: 0,
     fills: 0,
     stops: 0,
     locks: 0,
     vol: 0,
-    curve: [100.0, 100.0 - TOTAL_BRIDGE_GAS],
+    curve: [100.0, 100.0 - BRIDGE_GAS_USD],
     recentFills: [],
-    hlBooks: {},
+    books: {},
     cbSpot: {},
     cbBasisEwma: {},
-    hlPos: {},
-    hlQuotes: {},
-    hlMids: {},
+    pos: {},
+    quotes: {},
+    mids: {},
     volBuckets: {},
     curBucketVol: {},
-    pmPos: {},
   };
-  HL_MARKETS.forEach(m => {
-    s.hlPos[m.sym] = { size: 0, avgEntry: 0, realized: 0 };
-    s.hlQuotes[m.sym] = { bids: [], asks: [], spreadBps: m.baseSpreadBps, instab: 0, cbLeadBps: 0, status: "QUOTING" };
-    s.hlMids[m.sym] = [];
+  MARKETS.forEach(m => {
+    s.pos[m.sym] = { size: 0, avgEntry: 0, realized: 0 };
+    s.quotes[m.sym] = { bids: [], asks: [], spreadBps: m.baseSpreadBps, instab: 0, cbShockBps: 0, status: "QUOTING" };
+    s.mids[m.sym] = [];
     s.volBuckets[m.sym] = [];
     s.curBucketVol[m.sym] = 0;
   });
@@ -230,14 +192,13 @@ function loadState() {
     const saved = JSON.parse(raw);
     const s = freshState();
     Object.assign(s, saved);
-    HL_MARKETS.forEach(m => {
-      if (!s.hlPos[m.sym]) s.hlPos[m.sym] = { size: 0, avgEntry: 0, realized: 0 };
-      if (!s.hlQuotes[m.sym]) s.hlQuotes[m.sym] = { bids: [], asks: [], spreadBps: m.baseSpreadBps, instab: 0, cbLeadBps: 0, status: "QUOTING" };
-      if (!s.hlMids[m.sym]) s.hlMids[m.sym] = [];
+    MARKETS.forEach(m => {
+      if (!s.pos[m.sym]) s.pos[m.sym] = { size: 0, avgEntry: 0, realized: 0 };
+      if (!s.quotes[m.sym]) s.quotes[m.sym] = { bids: [], asks: [], spreadBps: m.baseSpreadBps, instab: 0, cbShockBps: 0, status: "QUOTING" };
+      if (!s.mids[m.sym]) s.mids[m.sym] = [];
       if (!s.volBuckets[m.sym]) s.volBuckets[m.sym] = [];
       s.curBucketVol[m.sym] = 0;
     });
-    if (!s.pmPos) s.pmPos = {};
     return s;
   } catch (e) {
     return freshState();
@@ -248,22 +209,19 @@ function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       startedAt: state.startedAt,
-      hlTicks: state.hlTicks,
+      ticks: state.ticks,
       killReason: state.killReason,
-      hlCash: state.hlCash,
-      pmCash: state.pmCash,
-      pmLpRewards: state.pmLpRewards,
+      cash: state.cash,
       peakEq: state.peakEq,
       maxDd: state.maxDd,
-      hlFees: state.hlFees,
+      tradingFees: state.tradingFees,
       fills: state.fills,
       stops: state.stops,
       locks: state.locks,
       vol: state.vol,
       curve: state.curve.slice(-100),
       recentFills: state.recentFills.slice(0, 20),
-      hlPos: state.hlPos,
-      pmPos: state.pmPos,
+      pos: state.pos,
     }));
   } catch (e) {}
 }
@@ -272,49 +230,37 @@ function roundDown(px, tick) { return Math.floor(px / tick + 1e-12) * tick; }
 function roundUp(px, tick) { return Math.ceil(px / tick - 1e-12) * tick; }
 function roundLot(sz, lot) { return Math.floor(sz / lot + 1e-12) * lot; }
 
-function hlEquity() {
+function totalEquity() {
   let mark = 0;
-  for (const m of HL_MARKETS) {
-    const bk = state.hlBooks[m.sym];
-    const p = state.hlPos[m.sym];
+  for (const m of MARKETS) {
+    const bk = state.books[m.sym];
+    const p = state.pos[m.sym];
     if (p && p.size !== 0) {
       const px = bk ? bk.mid : p.avgEntry;
       if (px > 0) mark += p.size * px;
     }
   }
-  return state.hlCash + mark;
+  return state.cash + mark;
 }
 
-function pmEquity() {
-  let mark = 0;
-  for (const [tid, p] of Object.entries(state.pmPos || {})) {
-    if (p && p.size !== 0) {
-      const pm = pmMarkets.find(x => x.tid === tid);
-      const px = (pm && pm.mid > 0) ? pm.mid : p.avgEntry;
-      if (px > 0) mark += p.size * px;
-    }
-  }
-  return state.pmCash + state.pmLpRewards + mark;
-}
-
-function totalEquity() { return hlEquity() + pmEquity(); }
-
-function hlGrossExposure() {
+function grossExposure() {
   let g = 0;
-  for (const m of HL_MARKETS) {
-    const bk = state.hlBooks[m.sym];
-    const p = state.hlPos[m.sym];
-    if (bk && p.size !== 0) g += Math.abs(p.size * bk.mid);
+  for (const m of MARKETS) {
+    const bk = state.books[m.sym];
+    const p = state.pos[m.sym];
+    if (p && p.size !== 0) {
+      const px = bk ? bk.mid : p.avgEntry;
+      if (px > 0) g += Math.abs(p.size * px);
+    }
   }
   return g;
 }
 
-function checkPortfolioKillSwitch() {
-  if (state.hlTicks < 3) return false; // Wait for live books to hydrate on reload
+function checkKillSwitch() {
+  if (state.ticks < 3) return false;
   const eq = totalEquity();
   if (eq > state.peakEq) state.peakEq = eq;
   const dd = (state.peakEq - eq) / state.peakEq;
-  // Auto-clear false reload halt if equity is actually healthy
   if (state.killReason && dd < MAX_DRAWDOWN_PCT && (100.0 - eq) / 100.0 < MAX_DAILY_LOSS_PCT) {
     state.killReason = null;
     state.maxDd = dd;
@@ -332,8 +278,8 @@ function checkPortfolioKillSwitch() {
   return false;
 }
 
-function applyHlFill(sym, side, price, size, isMaker = true, tag = "HL-L1") {
-  const p = state.hlPos[sym];
+function applyFill(sym, side, price, size, isMaker = true, tag = "L1") {
+  const p = state.pos[sym];
   const delta = side === "BUY" ? size : -size;
   if (p.size !== 0 && (p.size > 0) !== (delta > 0)) {
     const closeQty = Math.min(Math.abs(p.size), Math.abs(delta));
@@ -349,41 +295,15 @@ function applyHlFill(sym, side, price, size, isMaker = true, tag = "HL-L1") {
     p.size = newSize;
   }
   const notional = price * size;
-  const fee = notional * ((isMaker ? HL_MAKER_BPS : HL_TAKER_BPS) / 10000);
-  state.hlCash -= delta * price;
-  state.hlCash -= fee;
-  state.hlFees += fee;
-  state.fills += 1;
-  state.vol += notional;
-  state.recentFills.unshift({ t: new Date().toLocaleTimeString([], { hour12: false }), venue: "HL", sym, side, tag, price, notional, fee });
-  if (state.recentFills.length > 20) state.recentFills.pop();
-  saveState();
-}
-
-function applyPmFill(pm, side, price, size) {
-  if (!state.pmPos[pm.tid]) state.pmPos[pm.tid] = { size: 0, avgEntry: 0, realized: 0 };
-  const p = state.pmPos[pm.tid];
-  const delta = side === "BUY" ? size : -size;
-  if (p.size !== 0 && (p.size > 0) !== (delta > 0)) {
-    const closeQty = Math.min(Math.abs(p.size), Math.abs(delta));
-    p.realized += p.size > 0 ? closeQty * (price - p.avgEntry) : closeQty * (p.avgEntry - price);
-  }
-  const newSize = p.size + delta;
-  if (Math.abs(newSize) < 1e-9) { p.size = 0; p.avgEntry = 0; }
-  else if (p.size === 0 || (p.size > 0) === (delta > 0)) {
-    p.avgEntry = (Math.abs(p.size) * p.avgEntry + Math.abs(delta) * price) / Math.abs(newSize);
-    p.size = newSize;
-  } else {
-    if ((newSize > 0) !== (p.size > 0)) p.avgEntry = price;
-    p.size = newSize;
-  }
-  const notional = price * size;
-  state.pmCash -= delta * price; // 0% maker fee on Polymarket CLOB!
+  const fee = notional * ((isMaker ? MAKER_FEE_BPS : TAKER_FEE_BPS) / 10000);
+  state.cash -= delta * price;
+  state.cash -= fee;
+  state.tradingFees += fee;
   state.fills += 1;
   state.vol += notional;
   state.recentFills.unshift({
     t: new Date().toLocaleTimeString([], { hour12: false }),
-    venue: "PM", sym: pm.short, side, tag: "0%FEE", price, notional, fee: 0
+    sym, side, tag, price, notional, fee
   });
   if (state.recentFills.length > 20) state.recentFills.pop();
   saveState();
@@ -399,47 +319,44 @@ function calcVolInstab(sym) {
   return std > 1e-6 ? Math.min(3.0, Math.max(0.0, (recent - mean) / std)) : 0.0;
 }
 
-function updateHlQuotes(m) {
-  if (checkPortfolioKillSwitch()) {
-    state.hlQuotes[m.sym] = { bids: [], asks: [], spreadBps: 150, instab: 0, cbLeadBps: 0, status: "HALT" };
+function updateQuotes(m) {
+  if (checkKillSwitch()) {
+    state.quotes[m.sym] = { bids: [], asks: [], spreadBps: 150, instab: 0, cbShockBps: 0, status: "HALT" };
     return;
   }
-  const bk = state.hlBooks[m.sym];
+  const bk = state.books[m.sym];
   if (!bk) return;
-  const p = state.hlPos[m.sym];
+  const p = state.pos[m.sym];
 
-  // Stop-loss (40 bps)
+  // 40 bps per-position stop-loss
   if (p.size !== 0 && p.avgEntry > 0) {
     const adv = p.size > 0
       ? ((p.avgEntry - bk.bid) / p.avgEntry) * 10000
       : ((bk.ask - p.avgEntry) / p.avgEntry) * 10000;
     if (adv >= STOP_LOSS_BPS) {
-      applyHlFill(m.sym, p.size > 0 ? "SELL" : "BUY", p.size > 0 ? bk.bid : bk.ask, Math.abs(p.size), false, "STOP");
+      applyFill(m.sym, p.size > 0 ? "SELL" : "BUY", p.size > 0 ? bk.bid : bk.ask, Math.abs(p.size), false, "STOP");
       state.stops += 1;
     }
   }
 
-  // Sleeve sizing ($50 HL sleeve, up to 1.5x leverage = $75 max gross, $12 L1 + $12 L2)
-  const sleeveEq = Math.max(20, hlEquity());
-  const clipUsd = Math.max(10.5, sleeveEq * 0.24);
-  const maxPosUsd = sleeveEq * 0.65;
-  const maxGrossUsd = sleeveEq * 1.45;
-  const gross = hlGrossExposure();
+  // Auto-compounding $100 bankroll sizing (20% L1 + 20% L2, max 45%/coin, 1.45x max gross)
+  const eq = totalEquity();
+  const clipUsd = Math.max(11.0, eq * 0.20);
+  const maxPosUsd = eq * 0.45;
+  const maxGrossUsd = eq * 1.45;
+  const gross = grossExposure();
 
-  // De-meaned Coinbase Spot -> Hyperliquid Shock Signal (removes static funding basis!)
+  // De-meaned Coinbase Spot -> Hyperliquid Shock Signal
   const cbPx = state.cbSpot[m.sym];
-  let cbLeadBps = 0.0;
+  let cbShockBps = 0.0;
   if (cbPx && cbPx > 0 && bk.mid > 0) {
     const rawBasis = ((cbPx - bk.mid) / bk.mid) * 10000;
-    if (state.cbBasisEwma[m.sym] === undefined) {
-      state.cbBasisEwma[m.sym] = rawBasis;
-    } else {
-      state.cbBasisEwma[m.sym] = 0.05 * rawBasis + 0.95 * state.cbBasisEwma[m.sym];
-    }
-    cbLeadBps = Math.max(-30, Math.min(30, rawBasis - state.cbBasisEwma[m.sym]));
+    if (state.cbBasisEwma[m.sym] === undefined) state.cbBasisEwma[m.sym] = rawBasis;
+    else state.cbBasisEwma[m.sym] = 0.05 * rawBasis + 0.95 * state.cbBasisEwma[m.sym];
+    cbShockBps = Math.max(-30, Math.min(30, rawBasis - state.cbBasisEwma[m.sym]));
   }
 
-  const hist = state.hlMids[m.sym];
+  const hist = state.mids[m.sym];
   let volBps = 6.0, momShort = 0.0, momLong = 0.0;
   if (hist.length >= 6) {
     const rets = [];
@@ -451,8 +368,7 @@ function updateHlQuotes(m) {
   }
   const volInstab = calcVolInstab(m.sym);
 
-  // Fair Value blends HL microprice + 35% of Coinbase Spot lead-lag basis
-  const fv = bk.micro * (1 + (0.35 * cbLeadBps) / 10000);
+  const fv = bk.micro * (1 + (0.35 * cbShockBps) / 10000);
   const posUsd = p.size * bk.mid;
   const rawQ = posUsd / maxPosUsd;
   const q = Math.max(-1, Math.min(1, rawQ));
@@ -460,9 +376,8 @@ function updateHlQuotes(m) {
   const halfSpread = Math.max(8.0, Math.min(150.0, m.baseSpreadBps + VOL_MULT * volBps + INSTAB_SPREAD_BPS * volInstab));
 
   const shockHalt = volInstab >= 2.6;
-  // Pull stale side immediately if Coinbase Spot leads sharply against us!
-  const shieldBid = shockHalt || (cbLeadBps <= -CB_LEAD_CANCEL_BPS) || (momShort <= -TREND_SHIELD_BPS) || (momLong <= -TREND_SHIELD_BPS * 2);
-  const shieldAsk = shockHalt || (cbLeadBps >= CB_LEAD_CANCEL_BPS) || (momShort >= TREND_SHIELD_BPS) || (momLong >= TREND_SHIELD_BPS * 2);
+  const shieldBid = shockHalt || (cbShockBps <= -CB_SHOCK_CANCEL_BPS) || (momShort <= -TREND_SHIELD_BPS) || (momLong <= -TREND_SHIELD_BPS * 2);
+  const shieldAsk = shockHalt || (cbShockBps >= CB_SHOCK_CANCEL_BPS) || (momShort >= TREND_SHIELD_BPS) || (momLong >= TREND_SHIELD_BPS * 2);
 
   const canAddLong = (posUsd + clipUsd <= maxPosUsd) && (gross + clipUsd <= maxGrossUsd || p.size < 0);
   const canAddShort = (Math.abs(posUsd - clipUsd) <= maxPosUsd) && (gross + clipUsd <= maxGrossUsd || p.size > 0);
@@ -479,7 +394,7 @@ function updateHlQuotes(m) {
       }
       px = Math.min(px, roundDown(bk.ask - m.tick * (lv + 1), m.tick));
       const sz = roundLot(clipUsd / px, m.lot);
-      if (px > 0 && sz * px >= 10.0) bids.push({ px, sz, tag: (lv === 0 && profitLocked) ? "LOCK" : `L${lv+1}` });
+      if (px > 0 && sz * px >= MIN_NOTIONAL) bids.push({ px, sz, tag: (lv === 0 && profitLocked) ? "LOCK" : `L${lv+1}` });
     }
   }
   if (!shieldAsk && canAddShort) {
@@ -491,157 +406,42 @@ function updateHlQuotes(m) {
       }
       px = Math.max(px, roundUp(bk.bid + m.tick * (lv + 1), m.tick));
       const sz = roundLot(clipUsd / px, m.lot);
-      if (px > 0 && sz * px >= 10.0) asks.push({ px, sz, tag: (lv === 0 && profitLocked) ? "LOCK" : `L${lv+1}` });
+      if (px > 0 && sz * px >= MIN_NOTIONAL) asks.push({ px, sz, tag: (lv === 0 && profitLocked) ? "LOCK" : `L${lv+1}` });
     }
   }
 
   let status = "QUOTING";
   if (shockHalt) status = "HALT";
   else if (profitLocked) status = "LOCK";
-  else if (Math.abs(cbLeadBps) >= CB_LEAD_CANCEL_BPS) status = "CB-LEAD";
+  else if (Math.abs(cbShockBps) >= CB_SHOCK_CANCEL_BPS) status = "CB-LEAD";
   else if (shieldBid || shieldAsk) status = "SHIELD";
   else if (!canAddLong || !canAddShort) status = "UNWIND";
 
-  state.hlQuotes[m.sym] = { bids, asks, spreadBps: halfSpread, instab: volInstab, cbLeadBps, status };
+  state.quotes[m.sym] = { bids, asks, spreadBps: halfSpread, instab: volInstab, cbShockBps, status };
 }
 
-function checkHlFills(sym, tradePx) {
-  const q = state.hlQuotes[sym];
+function checkFills(sym, tradePx) {
+  const q = state.quotes[sym];
   if (!q) return;
   const remB = [];
   for (const b of q.bids) {
-    if (tradePx <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyHlFill(sym, "BUY", b.px, b.sz, true, b.tag); }
+    if (tradePx <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyFill(sym, "BUY", b.px, b.sz, true, b.tag); }
     else remB.push(b);
   }
   q.bids = remB;
   const remA = [];
   for (const a of q.asks) {
-    if (tradePx >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyHlFill(sym, "SELL", a.px, a.sz, true, a.tag); }
+    if (tradePx >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyFill(sym, "SELL", a.px, a.sz, true, a.tag); }
     else remA.push(a);
   }
   q.asks = remA;
 }
 
-// --- Polymarket CLOB Auto-Discovery (Non-Sports, Wide Spreads >= 50 bps) & Live Polling ---
-async function discoverPolymarket() {
-  try {
-    const r = await fetch("https://gamma-api.polymarket.com/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=60");
-    const list = await r.json();
-    const picked = [];
-    for (const m of list) {
-      if (picked.length >= 3) break;
-      const qText = (m.question || "").replace(/\?$/, "");
-      if (!qText || SPORTS_RE.test(qText)) continue; // Exclude toxic in-play sports markets!
-      const tids = typeof m.clobTokenIds === "string" ? JSON.parse(m.clobTokenIds || "[]") : (m.clobTokenIds || []);
-      if (!tids.length) continue;
-      const tid = tids[0];
-      const br = await fetch(`https://clob.polymarket.com/book?token_id=${tid}`);
-      if (!br.ok) continue;
-      const bk = await br.json();
-      const bids = (bk.bids || []).map(x => parseFloat(x.price));
-      const asks = (bk.asks || []).map(x => parseFloat(x.price));
-      if (!bids.length || !asks.length) continue;
-      const bb = Math.max(...bids), ba = Math.min(...asks);
-      const mid = 0.5 * (bb + ba);
-      const sprBps = mid > 0 ? ((ba - bb) / mid) * 10000 : 0;
-      if (mid >= 0.20 && mid <= 0.80 && ba > bb && sprBps >= 50) {
-        picked.push({
-          tid,
-          q: qText,
-          short: qText.slice(0, 14),
-          bid: bb, ask: ba, mid, prevMid: mid,
-          shieldUntil: 0,
-          quoteBid: null, quoteAsk: null, quoteSz: 0,
-        });
-      }
-    }
-    pmMarkets = picked;
-    document.getElementById("pm-status").textContent = `${pmMarkets.length} non-sports books`;
-    pmMarkets.forEach(updatePmQuote);
-  } catch (e) {
-    document.getElementById("pm-status").textContent = "retrying...";
-  }
-}
-
-function updatePmQuote(pm) {
-  if (checkPortfolioKillSwitch() || pm.mid <= 0 || Date.now() < pm.shieldUntil) {
-    pm.quoteBid = null; pm.quoteAsk = null;
-    return;
-  }
-  const p = state.pmPos[pm.tid] || { size: 0, avgEntry: 0, realized: 0 };
-
-  // Polymarket 4c stop-loss on open inventory
-  if (p.size !== 0 && p.avgEntry > 0) {
-    const advCents = p.size > 0 ? (p.avgEntry - pm.bid) : (pm.ask - p.avgEntry);
-    if (advCents >= 0.04) {
-      applyPmFill(pm, p.size > 0 ? "SELL" : "BUY", p.size > 0 ? pm.bid : pm.ask, Math.abs(p.size));
-      state.stops += 1;
-      pm.shieldUntil = Date.now() + 30000;
-      pm.quoteBid = null; pm.quoteAsk = null;
-      return;
-    }
-  }
-
-  const clipUsd = 8.0;
-  const maxPosUsd = 16.0;
-  const posUsd = p.size * pm.mid;
-  // Rest conservatively 0.5c-1c outside top of book (or skewed to unwind inventory)
-  const pad = 0.005;
-  const skew = posUsd > 4 ? -0.005 : (posUsd < -4 ? 0.005 : 0.0);
-  const myBid = Math.max(0.02, Math.min(pm.ask - 0.005, Math.round((pm.bid - pad + skew) * 1000) / 1000));
-  const myAsk = Math.min(0.98, Math.max(pm.bid + 0.005, Math.round((pm.ask + pad + skew) * 1000) / 1000));
-
-  pm.quoteBid = (posUsd + clipUsd <= maxPosUsd && state.pmCash >= clipUsd) ? myBid : null;
-  pm.quoteAsk = (p.size > 1 || posUsd - clipUsd >= -maxPosUsd) ? myAsk : null;
-  pm.quoteSz = Math.max(5, Math.floor(clipUsd / pm.mid));
-}
-
-async function pollPolymarketBooks() {
-  if (!running || !pmMarkets.length) return;
-  for (const pm of pmMarkets) {
-    try {
-      const br = await fetch(`https://clob.polymarket.com/book?token_id=${pm.tid}`);
-      if (!br.ok) continue;
-      const bk = await br.json();
-      const bids = (bk.bids || []).map(x => parseFloat(x.price));
-      const asks = (bk.asks || []).map(x => parseFloat(x.price));
-      if (!bids.length || !asks.length) continue;
-      const bb = Math.max(...bids), ba = Math.min(...asks);
-      const newMid = 0.5 * (bb + ba);
-
-      // Jump-shield: if market jumps > 1.5c in 3 seconds, pause quoting for 30s
-      if (Math.abs(newMid - pm.prevMid) >= 0.015) {
-        pm.shieldUntil = Date.now() + 30000;
-        pm.quoteBid = null; pm.quoteAsk = null;
-      }
-      pm.prevMid = newMid;
-      pm.bid = bb; pm.ask = ba; pm.mid = newMid;
-
-      // Strict honest fill check
-      if (pm.quoteBid !== null && ba <= pm.quoteBid) {
-        applyPmFill(pm, "BUY", pm.quoteBid, pm.quoteSz);
-        pm.quoteBid = null;
-      }
-      if (pm.quoteAsk !== null && bb >= pm.quoteAsk) {
-        applyPmFill(pm, "SELL", pm.quoteAsk, pm.quoteSz);
-        pm.quoteAsk = null;
-      }
-
-      // Accrue conservative estimated Polymarket LP reward (~0.08%/day on two-sided tight quotes)
-      if (pm.quoteBid !== null && pm.quoteAsk !== null && (pm.quoteAsk - pm.quoteBid) <= 0.04) {
-        state.pmLpRewards += (16.0 * 0.0008) * (3.0 / 86400.0);
-      }
-      updatePmQuote(pm);
-    } catch (e) {}
-  }
-}
-
-// --- WebSockets (Hyperliquid + Coinbase Spot) ---
 function connectHyperliquid() {
   hlWs = new WebSocket("wss://api.hyperliquid.xyz/ws");
   hlWs.onopen = () => {
     state.hlConnected = true;
-    HL_MARKETS.forEach(m => {
+    MARKETS.forEach(m => {
       hlWs.send(JSON.stringify({ method: "subscribe", subscription: { type: "l2Book", coin: m.sym } }));
       hlWs.send(JSON.stringify({ method: "subscribe", subscription: { type: "trades", coin: m.sym } }));
     });
@@ -657,23 +457,23 @@ function connectHyperliquid() {
       const ask = parseFloat(a0.px), asz = parseFloat(a0.sz);
       const mid = 0.5 * (bid + ask);
       const micro = (bid * asz + ask * bsz) / Math.max(bsz + asz, 1e-9);
-      state.hlBooks[sym] = { bid, ask, mid, micro };
-      const hist = state.hlMids[sym];
+      state.books[sym] = { bid, ask, mid, micro };
+      const hist = state.mids[sym];
       hist.push(mid);
       if (hist.length > 40) hist.shift();
-      checkHlFills(sym, ask);
-      checkHlFills(sym, bid);
-      const m = HL_MARKETS.find(x => x.sym === sym);
-      if (m) updateHlQuotes(m);
-      state.hlTicks += 1;
+      checkFills(sym, ask);
+      checkFills(sym, bid);
+      const m = MARKETS.find(x => x.sym === sym);
+      if (m) updateQuotes(m);
+      state.ticks += 1;
     } else if (msg.channel === "trades" && Array.isArray(msg.data)) {
       for (const t of msg.data) {
-        if (state.hlQuotes[t.coin]) {
+        if (state.quotes[t.coin]) {
           const px = parseFloat(t.px), sz = parseFloat(t.sz);
           state.curBucketVol[t.coin] = (state.curBucketVol[t.coin] || 0) + px * sz;
-          checkHlFills(t.coin, px);
-          const m = HL_MARKETS.find(x => x.sym === t.coin);
-          if (m) updateHlQuotes(m);
+          checkFills(t.coin, px);
+          const m = MARKETS.find(x => x.sym === t.coin);
+          if (m) updateQuotes(m);
         }
       }
     }
@@ -687,7 +487,7 @@ function connectCoinbase() {
     state.cbConnected = true;
     cbWs.send(JSON.stringify({
       type: "subscribe",
-      product_ids: HL_MARKETS.map(m => m.cb),
+      product_ids: MARKETS.map(m => m.cb),
       channels: ["ticker"],
     }));
   };
@@ -695,12 +495,12 @@ function connectCoinbase() {
     if (!running) return;
     const msg = JSON.parse(ev.data);
     if (msg.type === "ticker" && msg.product_id && msg.price) {
-      const m = HL_MARKETS.find(x => x.cb === msg.product_id);
+      const m = MARKETS.find(x => x.cb === msg.product_id);
       if (m) {
         const bb = parseFloat(msg.best_bid || msg.price);
         const ba = parseFloat(msg.best_ask || msg.price);
         state.cbSpot[m.sym] = 0.5 * (bb + ba);
-        updateHlQuotes(m);
+        updateQuotes(m);
       }
     }
   };
@@ -711,7 +511,7 @@ function renderSpark() {
   const svg = document.getElementById("spark");
   const vals = state.curve;
   if (vals.length < 2) return;
-  const W = 360, H = 92, px = 8, py = 10;
+  const W = 360, H = 96, px = 8, py = 10;
   const mn = Math.min(...vals) - 0.002, mx = Math.max(...vals) + 0.002;
   const span = Math.max(mx - mn, 0.01);
   const pts = vals.map((v, i) => {
@@ -723,28 +523,24 @@ function renderSpark() {
   svg.innerHTML = `
     <polyline fill="none" stroke="${col}" stroke-width="2.2" points="${pts}"/>
     <text x="6" y="12" fill="#94a3b8" font-size="10">$${mx.toFixed(3)}</text>
-    <text x="6" y="88" fill="#94a3b8" font-size="10">$${mn.toFixed(3)}</text>
+    <text x="6" y="92" fill="#94a3b8" font-size="10">$${mn.toFixed(3)}</text>
   `;
 }
 
 function renderUI() {
-  checkPortfolioKillSwitch();
+  checkKillSwitch();
   const eq = totalEquity();
-  const hEq = hlEquity();
-  const pEq = pmEquity();
   const netPnl = eq - 100.0;
-  const tpnl = netPnl + TOTAL_BRIDGE_GAS;
+  const tpnl = netPnl + BRIDGE_GAS_USD;
 
   const kb = document.getElementById("kill-banner");
   if (state.killReason) {
     kb.style.display = "block";
     kb.textContent = `RISK KILL SWITCH ACTIVE: ${state.killReason} — Tap Reset $100 to clear.`;
-  } else {
-    kb.style.display = "none";
-  }
+  } else kb.style.display = "none";
 
   document.getElementById("ws-status").textContent =
-    (state.hlConnected ? "HL" : "...") + " + " + (state.cbConnected ? "CB" : "...") + " + PM";
+    (state.hlConnected ? "HL LIVE" : "...") + " + " + (state.cbConnected ? "CB" : "...");
 
   document.getElementById("eq").textContent = `$${eq.toFixed(4)}`;
   const pnlEl = document.getElementById("pnl");
@@ -756,18 +552,13 @@ function renderUI() {
   tpEl.className = "kpi-val " + (tpnl >= 0 ? "pos" : "neg");
 
   document.getElementById("fills").textContent = `${state.fills} fills · $${state.vol.toFixed(2)} vol`;
-  document.getElementById("hl-eq").textContent = `$${hEq.toFixed(4)}`;
-  document.getElementById("pm-eq").textContent = `$${pEq.toFixed(4)}`;
-  document.getElementById("pm-meta").textContent = `0% maker · +$${state.pmLpRewards.toFixed(4)} LP`;
+  document.getElementById("f-trade").textContent = `-$${state.tradingFees.toFixed(5)}`;
+  document.getElementById("f-dd").textContent = `${state.stops} / ${state.locks} · ${(state.maxDd * 100).toFixed(2)}%`;
+  document.getElementById("tick-cnt").textContent = `${state.ticks} live ticks`;
 
   const mins = Math.floor((Date.now() - state.startedAt) / 60000);
   const hrs = Math.floor(mins / 60);
   document.getElementById("g-time").textContent = `${hrs > 0 ? hrs + "h " : ""}${mins % 60}m · ${state.fills} fills`;
-  document.getElementById("f-trade").textContent = `-$${state.hlFees.toFixed(5)}`;
-  document.getElementById("f-pm").textContent = `$0.00 / +$${state.pmLpRewards.toFixed(4)}`;
-  document.getElementById("f-dd").textContent = `${state.stops} / ${state.locks} · ${(state.maxDd * 100).toFixed(2)}%`;
-  document.getElementById("hl-ticks").textContent = `${state.hlTicks} ticks`;
-
   const gb = document.getElementById("grad-badge");
   if (mins >= 10080 && netPnl > 0 && state.maxDd < 0.08) {
     gb.textContent = "READY FOR TESTNET";
@@ -778,16 +569,18 @@ function renderUI() {
     gb.style.borderColor = netPnl > 0 ? "#34d399" : "#fbbf24";
   }
 
-  document.getElementById("hl-mkts").innerHTML = HL_MARKETS.map(m => {
-    const bk = state.hlBooks[m.sym];
-    const q = state.hlQuotes[m.sym];
-    const p = state.hlPos[m.sym];
-    const invUsd = bk ? p.size * bk.mid : 0;
+  document.getElementById("mkts").innerHTML = MARKETS.map(m => {
+    const bk = state.books[m.sym];
+    const q = state.quotes[m.sym];
+    const p = state.pos[m.sym];
+    const invUsd = bk ? p.size * bk.mid : (p.size * p.avgEntry);
     const invCol = invUsd > 0.5 ? "#34d399" : (invUsd < -0.5 ? "#f87171" : "#94a3b8");
     const stCol = q.status === "HALT" ? "#f87171" : (q.status === "LOCK" ? "#22d3ee" : (q.status === "CB-LEAD" ? "#a78bfa" : (q.status === "SHIELD" ? "#fbbf24" : "#34d399")));
     const b1 = q.bids[0] ? "$" + q.bids[0].px.toFixed(5) : "—";
+    const b2 = q.bids[1] ? "$" + q.bids[1].px.toFixed(5) : "—";
     const a1 = q.asks[0] ? "$" + q.asks[0].px.toFixed(5) : "—";
-    const leadCol = Math.abs(q.cbLeadBps) >= CB_LEAD_CANCEL_BPS ? "#a78bfa" : "#94a3b8";
+    const a2 = q.asks[1] ? "$" + q.asks[1].px.toFixed(5) : "—";
+    const shockCol = Math.abs(q.cbShockBps) >= CB_SHOCK_CANCEL_BPS ? "#a78bfa" : "#94a3b8";
     return `
       <div class="mkt">
         <div class="mkt-top">
@@ -795,46 +588,22 @@ function renderUI() {
           <span class="badge" style="color:${stCol};border-color:${stCol}">${q.status} ${q.spreadBps.toFixed(0)}b</span>
         </div>
         <div class="mkt-grid">
-          <div><div class="lbl">Bid L1</div><div>${b1}</div></div>
-          <div><div class="lbl">Ask L1</div><div>${a1}</div></div>
-          <div><div class="lbl">CB Lead</div><div style="color:${leadCol}">${q.cbLeadBps >= 0 ? "+" : ""}${q.cbLeadBps.toFixed(1)}b</div></div>
+          <div><div class="lbl">Bid L1 / L2</div><div>${b1}<br><span style="color:#64748b">${b2}</span></div></div>
+          <div><div class="lbl">Ask L1 / L2</div><div>${a1}<br><span style="color:#64748b">${a2}</span></div></div>
+          <div><div class="lbl">CB Shock</div><div style="color:${shockCol}">${q.cbShockBps >= 0 ? "+" : ""}${q.cbShockBps.toFixed(1)}b</div></div>
           <div><div class="lbl">Inventory</div><div style="color:${invCol};font-weight:600">${invUsd >= 0 ? "+" : ""}$${invUsd.toFixed(2)}</div></div>
         </div>
       </div>
     `;
   }).join("");
 
-  if (pmMarkets.length) {
-    document.getElementById("pm-mkts").innerHTML = pmMarkets.map(pm => {
-      const p = state.pmPos[pm.tid] || { size: 0 };
-      const invUsd = p.size * pm.mid;
-      const sprBps = pm.mid > 0 ? ((pm.ask - pm.bid) / pm.mid * 10000).toFixed(0) : "0";
-      const invCol = invUsd > 0.5 ? "#34d399" : (invUsd < -0.5 ? "#f87171" : "#94a3b8");
-      return `
-        <div class="mkt">
-          <div class="mkt-top">
-            <span class="pm-q" title="${pm.q}">${pm.q}</span>
-            <span class="badge" style="color:#22d3ee;border-color:#22d3ee">${sprBps}b · 0%</span>
-          </div>
-          <div class="mkt-grid">
-            <div><div class="lbl">Book Mid</div><div>${(pm.mid*100).toFixed(1)}&cent;</div></div>
-            <div><div class="lbl">Our Bid</div><div>${pm.quoteBid ? (pm.quoteBid*100).toFixed(0) + "&cent;" : "—"}</div></div>
-            <div><div class="lbl">Our Ask</div><div>${pm.quoteAsk ? (pm.quoteAsk*100).toFixed(0) + "&cent;" : "—"}</div></div>
-            <div><div class="lbl">Inventory</div><div style="color:${invCol};font-weight:600">${invUsd >= 0 ? "+" : ""}$${invUsd.toFixed(2)}</div></div>
-          </div>
-        </div>
-      `;
-    }).join("");
-  }
-
   if (state.recentFills.length) {
     document.getElementById("fill-list").innerHTML = state.recentFills.map(f => {
       const c = f.side === "BUY" ? "#34d399" : "#f87171";
-      const vCol = f.venue === "PM" ? "#22d3ee" : "#a78bfa";
       return `
         <div class="fill-item">
-          <span>[${f.t}] <b style="color:${vCol}">${f.venue}</b> <strong style="color:${c}">${f.side}</strong> ${f.sym} (${f.tag})</span>
-          <span>$${f.price.toFixed(4)} · $${f.notional.toFixed(2)}</span>
+          <span>[${f.t}] <strong style="color:${c}">${f.side}</strong> ${f.sym} (${f.tag})</span>
+          <span>$${f.price.toFixed(5)} · $${f.notional.toFixed(2)} (fee $${f.fee.toFixed(4)})</span>
         </div>
       `;
     }).join("");
@@ -844,7 +613,7 @@ function renderUI() {
 
 setInterval(() => {
   if (!running) return;
-  HL_MARKETS.forEach(m => {
+  MARKETS.forEach(m => {
     const arr = state.volBuckets[m.sym];
     arr.push(state.curBucketVol[m.sym] || 0);
     state.curBucketVol[m.sym] = 0;
@@ -858,24 +627,21 @@ setInterval(() => {
   state.curve.push(eq);
   if (state.curve.length > 90) state.curve.shift();
   renderUI();
-  if (state.hlTicks % 10 === 0) saveState();
+  if (state.ticks % 10 === 0) saveState();
 }, 1000);
-
-setInterval(pollPolymarketBooks, 3000);
 
 document.getElementById("toggle-btn").addEventListener("click", (e) => {
   running = !running;
   e.target.textContent = running ? "Pause" : "Resume";
 });
 document.getElementById("reset-btn").addEventListener("click", () => {
-  const prevBooks = state.hlBooks;
+  const prevBooks = state.books;
   const prevCb = state.cbSpot;
   localStorage.removeItem(STORAGE_KEY);
   state = freshState();
-  state.hlBooks = prevBooks;
+  state.books = prevBooks;
   state.cbSpot = prevCb;
-  HL_MARKETS.forEach(updateHlQuotes);
-  pmMarkets.forEach(updatePmQuote);
+  MARKETS.forEach(updateQuotes);
   saveState();
   renderUI();
 });
@@ -883,7 +649,6 @@ document.getElementById("reset-btn").addEventListener("click", () => {
 state = loadState();
 connectHyperliquid();
 connectCoinbase();
-discoverPolymarket();
 renderUI();
 </script>
 </body>
