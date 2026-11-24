@@ -60,10 +60,10 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v7</div>
+      <div class="title">MindForge LIVE v7.1</div>
       <div class="pill"><span class="dot"></span><span id="status-pill">SYNCING HL...</span></div>
     </div>
-    <div class="sub">Delta-Neutral Funding Harvester (Long Spot + Short Perp) &middot; 0% Price-Crash Risk</div>
+    <div class="sub">Delta-Neutral Funding Harvester &middot; Auto-Compounding &middot; 0% Price-Crash Risk</div>
   </div>
 
   <div class="proof">
@@ -123,7 +123,8 @@
     <div class="row"><span>One-Time Arbitrum &rarr; HL Bridge Gas</span><span class="neg">-$0.1500</span></div>
     <div class="row"><span>Entry Maker Fees (1.5 bps &times; 2 legs)</span><span class="neg" id="c-fees">-$0.0000</span></div>
     <div class="row"><span>Est. Monthly Yield (at live rate)</span><span class="pos" id="c-mo">+$0.00 / mo</span></div>
-    <div class="row"><span>Est. Yearly Yield (at live rate)</span><span class="pos" id="c-yr">+$0.00 / yr</span></div>
+    <div class="row"><span>Est. Yearly Yield (Compounded APY)</span><span class="pos" id="c-yr">+$0.00 / yr</span></div>
+    <div class="row"><span>Auto-Compound ($15.20 min HL clip)</span><span id="c-comp">0x &middot; $0.00 / $15.20</span></div>
     <div class="row"><span>Session Runtime (Auto-Saved)</span><span id="c-time">0m</span></div>
   </div>
 </div>
@@ -139,6 +140,7 @@ const PAIRS = [
 const BRIDGE_GAS = 0.15;
 const MAKER_FEE_BPS = 1.5;
 const HEDGE_FRAC = 0.66; // 66% Spot + 34% Perp margin (~2x perp) = 66% hedged notional
+const COMPOUND_MIN_CASH = 15.20; // $10.00 Spot + $5.15 Perp margin (Hyperliquid $10 min order)
 
 let liveQuotes = {};
 let state = null;
@@ -151,7 +153,8 @@ function freshState(cap = 100) {
     freeCash: cap - BRIDGE_GAS,
     entryFees: 0,
     fundingEarned: 0,
-    positions: {}, // sym -> { qty, spotEntry, perpEntry, lockedCapital, funding }
+    compoundCount: 0,
+    positions: {},
   };
 }
 
@@ -161,6 +164,7 @@ function loadState() {
     if (!raw) return freshState(100);
     const s = JSON.parse(raw);
     if (!s || !s.cap) return freshState(100);
+    if (s.compoundCount === undefined) s.compoundCount = 0;
     return s;
   } catch (e) {
     return freshState(100);
@@ -173,7 +177,6 @@ function saveState() {
 
 function openInitialHedges() {
   if (Object.keys(state.positions).length > 0) return;
-  // Pick top 2 highest positive-funding pairs live right now (HYPE + PURR)
   const ranked = PAIRS
     .map(p => liveQuotes[p.sym])
     .filter(q => q && q.spotMid > 0 && q.perpMid > 0 && q.apy > 0)
@@ -201,6 +204,44 @@ function openInitialHedges() {
   saveState();
 }
 
+function autoCompound() {
+  if (state.freeCash < COMPOUND_MIN_CASH) return;
+  const best = PAIRS
+    .map(p => liveQuotes[p.sym])
+    .filter(q => q && q.spotMid > 0 && q.perpMid > 0 && q.apy >= 5.0)
+    .sort((a, b) => b.apy - a.apy)[0];
+  if (!best) return;
+
+  const deployCash = state.freeCash - 0.05;
+  const notional = deployCash * HEDGE_FRAC;
+  if (notional < 10.0) return;
+
+  const qtyAdd = notional / best.spotMid;
+  const fee = 2 * notional * (MAKER_FEE_BPS / 10000);
+  state.freeCash -= (deployCash + fee);
+  state.entryFees += fee;
+  state.compoundCount = (state.compoundCount || 0) + 1;
+
+  if (state.positions[best.sym]) {
+    const pos = state.positions[best.sym];
+    const totalQty = pos.qty + qtyAdd;
+    pos.spotEntry = (pos.qty * pos.spotEntry + qtyAdd * best.spotMid) / totalQty;
+    pos.perpEntry = (pos.qty * pos.perpEntry + qtyAdd * best.perpMid) / totalQty;
+    pos.qty = totalQty;
+    pos.lockedCapital += deployCash;
+  } else {
+    state.positions[best.sym] = {
+      sym: best.sym,
+      qty: qtyAdd,
+      spotEntry: best.spotMid,
+      perpEntry: best.perpMid,
+      lockedCapital: deployCash,
+      funding: 0,
+    };
+  }
+  saveState();
+}
+
 function accrueLiveFunding() {
   const now = Date.now();
   const dtSec = Math.max(0, (now - state.lastTickAt) / 1000);
@@ -215,6 +256,7 @@ function accrueLiveFunding() {
     state.fundingEarned += inc;
     state.freeCash += inc;
   }
+  autoCompound();
   saveState();
 }
 
@@ -296,10 +338,12 @@ function renderUI() {
   document.getElementById("c-basis").className = basisPnl >= 0 ? "pos" : "neg";
   document.getElementById("c-fees").textContent = `-$${state.entryFees.toFixed(4)}`;
 
-  const yrUsd = state.cap * (portApy / 100);
-  const moUsd = yrUsd / 12;
+  const compApy = (Math.pow(1 + (portApy / 100) / 365, 365) - 1) * 100;
+  const yrUsd = state.cap * (compApy / 100);
+  const moUsd = (state.cap * (portApy / 100)) / 12;
   document.getElementById("c-mo").textContent = `+$${moUsd.toFixed(2)} / mo`;
-  document.getElementById("c-yr").textContent = `+$${yrUsd.toFixed(2)} / yr`;
+  document.getElementById("c-yr").textContent = `+$${yrUsd.toFixed(2)} / yr (${compApy.toFixed(2)}%)`;
+  document.getElementById("c-comp").textContent = `${state.compoundCount || 0}x · $${Math.max(0, state.freeCash).toFixed(2)} / $${COMPOUND_MIN_CASH.toFixed(2)}`;
 
   const mins = Math.floor((Date.now() - state.startedAt) / 60000);
   const hrs = Math.floor(mins / 60);

@@ -80,7 +80,51 @@ class FundingHarvester:
         self.free_cash_usd = starting_equity_usd - bridge_gas_usd
         self.total_fees_usd = bridge_gas_usd
         self.total_funding_usd = 0.0
+        self.compound_count = 0
         self.positions: dict[str, DeltaNeutralPosition] = {}
+
+    def auto_compound(self, quotes: dict[str, FundingPairQuote], min_order_usd: float = 10.0) -> str | None:
+        """Reinvest accumulated funding into the highest-APY pair once >= min_order_usd hedged notional."""
+        min_cash_needed = min_order_usd / self.hedge_notional_fraction + 0.05
+        if self.free_cash_usd < min_cash_needed:
+            return None
+
+        best_quote = max(
+            (q for q in quotes.values() if q.spot_mid > 0 and q.perp_mid > 0 and q.annualized_apy_pct >= self.min_entry_apy_pct),
+            key=lambda q: q.annualized_apy_pct,
+            default=None,
+        )
+        if best_quote is None:
+            return None
+
+        deploy_cash = self.free_cash_usd - 0.05
+        notional = deploy_cash * self.hedge_notional_fraction
+        if notional < min_order_usd:
+            return None
+
+        qty_add = notional / best_quote.spot_mid
+        fee = 2.0 * notional * (self.maker_fee_bps / 10_000.0)
+        self.free_cash_usd -= deploy_cash + fee
+        self.total_fees_usd += fee
+        self.compound_count += 1
+
+        if best_quote.symbol in self.positions:
+            pos = self.positions[best_quote.symbol]
+            total_qty = pos.qty + qty_add
+            pos.spot_entry = (pos.qty * pos.spot_entry + qty_add * best_quote.spot_mid) / total_qty
+            pos.perp_entry = (pos.qty * pos.perp_entry + qty_add * best_quote.perp_mid) / total_qty
+            pos.qty = total_qty
+            pos.fees_paid_usd += fee
+        else:
+            self.positions[best_quote.symbol] = DeltaNeutralPosition(
+                symbol=best_quote.symbol,
+                spot_coin=best_quote.spot_coin,
+                qty=qty_add,
+                spot_entry=best_quote.spot_mid,
+                perp_entry=best_quote.perp_mid,
+                fees_paid_usd=fee,
+            )
+        return best_quote.symbol
 
     def open_hedge(self, quote: FundingPairQuote, notional_usd: float) -> DeltaNeutralPosition | None:
         """Open a 1:1 Long Spot + Short Perp delta-neutral hedge."""
