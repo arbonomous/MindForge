@@ -60,26 +60,31 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v7.1</div>
+      <div class="title">MindForge LIVE v7.2</div>
       <div class="pill"><span class="dot"></span><span id="status-pill">SYNCING HL...</span></div>
     </div>
-    <div class="sub">Delta-Neutral Funding Harvester &middot; Auto-Compounding &middot; 0% Price-Crash Risk</div>
+    <div class="sub">Max-Yield Delta-Neutral (4&times; Perp / 80% Hedged) &middot; Auto-Rotate + Auto-Compound</div>
   </div>
 
   <div class="proof">
-    <strong style="color:var(--green);">30-Day Real Hyperliquid Proof:</strong> Green in <strong>Week 1, 2, 3 &amp; 4</strong> even during a <strong>-30% crash</strong> (<code>PURR +14.6% APY</code>, <code>HYPE +13.7% APY</code>, <code>BTC +9.6% APY</code>). Paper matches real Hyperliquid wallet PnL to the penny.
+    <strong style="color:var(--green);">Max-Yield Mode Active:</strong> Concentrates <strong>80% hedged notional</strong> into the <strong>#1 highest-APY pair</strong> with <strong>Auto-Rotation</strong>, <strong>$12.55 Auto-Compound</strong>, and a <strong>&plusmn;12% Auto-Rebalance Guard</strong> to protect the 4&times; short leg.
   </div>
 
-  <!-- Capital Scale Toggle -->
+  <!-- Capital & Aggression Controls -->
   <div class="card" style="padding:10px 13px;">
     <div class="sec-title" style="margin-bottom:6px;">
-      <span>Paper Capital Size</span>
-      <span id="cap-lbl" style="color:var(--accent);">$100.00</span>
+      <span>Paper Capital &amp; Aggression</span>
+      <span id="cap-lbl" style="color:var(--accent);">$100 &middot; MAX 4&times;</span>
     </div>
-    <div class="grid3">
+    <div class="grid3" style="margin-bottom:6px;">
       <button class="btn btn-primary cap-btn" data-cap="100">$100</button>
       <button class="btn cap-btn" data-cap="1000">$1,000</button>
       <button class="btn cap-btn" data-cap="10000">$10,000</button>
+    </div>
+    <div class="grid3">
+      <button class="btn lev-btn" data-lev="2">Safe 2&times; (66%)</button>
+      <button class="btn lev-btn" data-lev="3">Boost 3&times; (75%)</button>
+      <button class="btn btn-primary lev-btn" data-lev="4">Max 4&times; (80%)</button>
     </div>
   </div>
 
@@ -103,7 +108,7 @@
       <span>Active 1:1 Hedged Positions (Long Spot / Short Perp)</span>
       <button class="btn" id="reset-btn">Reset</button>
     </div>
-    <div id="pos-box" class="kpi-sm">Opening 1:1 delta-neutral hedges on live Hyperliquid Spot + Perp prices...</div>
+    <div id="pos-box" class="kpi-sm">Opening max-yield delta-neutral hedge on live Hyperliquid prices...</div>
   </div>
 
   <!-- Live Hyperliquid Funding Scanner -->
@@ -118,42 +123,47 @@
   <!-- Exact Cost & Yield Breakdown -->
   <div class="card">
     <div class="sec-title"><span>100% Honest Accounting &amp; Live Yield Projection</span></div>
-    <div class="row"><span>Net Price Exposure (Delta)</span><span class="pos">0.00% (1:1 Hedged)</span></div>
+    <div class="row"><span>Net Price Exposure / Liq Buffer</span><span class="pos" id="c-liq">0.00% Delta &middot; ~22% Pump</span></div>
     <div class="row"><span>Spot-Perp Basis Mark-to-Market</span><span id="c-basis">$0.0000</span></div>
     <div class="row"><span>One-Time Arbitrum &rarr; HL Bridge Gas</span><span class="neg">-$0.1500</span></div>
-    <div class="row"><span>Entry Maker Fees (1.5 bps &times; 2 legs)</span><span class="neg" id="c-fees">-$0.0000</span></div>
+    <div class="row"><span>Entry + Rotation Fees (1.5 bps/leg)</span><span class="neg" id="c-fees">-$0.0000</span></div>
     <div class="row"><span>Est. Monthly Yield (at live rate)</span><span class="pos" id="c-mo">+$0.00 / mo</span></div>
     <div class="row"><span>Est. Yearly Yield (Compounded APY)</span><span class="pos" id="c-yr">+$0.00 / yr</span></div>
-    <div class="row"><span>Auto-Compound ($15.20 min HL clip)</span><span id="c-comp">0x &middot; $0.00 / $15.20</span></div>
+    <div class="row"><span>Auto-Compound / Auto-Rotations</span><span id="c-comp">0x / 0 rot &middot; $0.00 / $12.55</span></div>
     <div class="row"><span>Session Runtime (Auto-Saved)</span><span id="c-time">0m</span></div>
   </div>
 </div>
 
 <script>
-const STORAGE_KEY = "mindforge_live_v7_funding_state";
+const STORAGE_KEY = "mindforge_live_v72_maxyield_state";
 const PAIRS = [
   { sym: "HYPE", spotCoin: "@107",      label: "HYPE/USDC" },
   { sym: "PURR", spotCoin: "PURR/USDC", label: "PURR/USDC" },
   { sym: "BTC",  spotCoin: "@142",      label: "UBTC/USDC" },
   { sym: "ETH",  spotCoin: "@151",      label: "UETH/USDC" },
 ];
+const LEV_MODES = {
+  2: { label: "SAFE 2×",  frac: 0.66, topN: 2, liqBuf: "~45% Pump", minCash: 15.20 },
+  3: { label: "BOOST 3×", frac: 0.75, topN: 2, liqBuf: "~30% Pump", minCash: 13.40 },
+  4: { label: "MAX 4×",   frac: 0.80, topN: 1, liqBuf: "~22% Pump (±12% guard)", minCash: 12.55 },
+};
 const BRIDGE_GAS = 0.15;
 const MAKER_FEE_BPS = 1.5;
-const HEDGE_FRAC = 0.66; // 66% Spot + 34% Perp margin (~2x perp) = 66% hedged notional
-const COMPOUND_MIN_CASH = 15.20; // $10.00 Spot + $5.15 Perp margin (Hyperliquid $10 min order)
 
 let liveQuotes = {};
 let state = null;
 
-function freshState(cap = 100) {
+function freshState(cap = 100, lev = 4) {
   return {
     cap,
+    lev,
     startedAt: Date.now(),
     lastTickAt: Date.now(),
     freeCash: cap - BRIDGE_GAS,
     entryFees: 0,
     fundingEarned: 0,
     compoundCount: 0,
+    rotationCount: 0,
     positions: {},
   };
 }
@@ -161,13 +171,15 @@ function freshState(cap = 100) {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return freshState(100);
+    if (!raw) return freshState(100, 4);
     const s = JSON.parse(raw);
-    if (!s || !s.cap) return freshState(100);
+    if (!s || !s.cap) return freshState(100, 4);
+    if (!s.lev) s.lev = 4;
     if (s.compoundCount === undefined) s.compoundCount = 0;
+    if (s.rotationCount === undefined) s.rotationCount = 0;
     return s;
   } catch (e) {
-    return freshState(100);
+    return freshState(100, 4);
   }
 }
 
@@ -177,16 +189,17 @@ function saveState() {
 
 function openInitialHedges() {
   if (Object.keys(state.positions).length > 0) return;
+  const lm = LEV_MODES[state.lev] || LEV_MODES[4];
   const ranked = PAIRS
     .map(p => liveQuotes[p.sym])
     .filter(q => q && q.spotMid > 0 && q.perpMid > 0 && q.apy > 0)
     .sort((a, b) => b.apy - a.apy)
-    .slice(0, 2);
+    .slice(0, lm.topN);
 
   if (ranked.length === 0) return;
   const perPairCapital = state.freeCash / ranked.length;
   for (const q of ranked) {
-    const notional = perPairCapital * HEDGE_FRAC;
+    const notional = perPairCapital * lm.frac;
     const qty = notional / q.spotMid;
     const fee = 2 * notional * (MAKER_FEE_BPS / 10000);
     state.freeCash -= (perPairCapital + fee);
@@ -204,8 +217,61 @@ function openInitialHedges() {
   saveState();
 }
 
+function autoRotateAndGuard() {
+  const lm = LEV_MODES[state.lev] || LEV_MODES[4];
+  const best = PAIRS
+    .map(p => liveQuotes[p.sym])
+    .filter(q => q && q.spotMid > 0 && q.perpMid > 0 && q.apy >= 5.0)
+    .sort((a, b) => b.apy - a.apy)[0];
+  if (!best) return;
+
+  for (const [sym, pos] of Object.entries(state.positions)) {
+    const q = liveQuotes[sym];
+    if (!q || q.spotMid <= 0 || q.perpMid <= 0) continue;
+
+    // 1. ±12% price-move Auto-Rebalance Guard (protects 4x short perp margin from liquidation)
+    const movePct = Math.abs(q.perpMid - pos.perpEntry) / pos.perpEntry;
+    if (movePct >= 0.12) {
+      const basisPnl = pos.qty * (q.spotMid - pos.spotEntry) + pos.qty * (pos.perpEntry - q.perpMid);
+      pos.lockedCapital += basisPnl;
+      pos.spotEntry = q.spotMid;
+      pos.perpEntry = q.perpMid;
+      const newNotional = pos.lockedCapital * lm.frac;
+      const rebalFee = 2 * Math.abs(newNotional - pos.qty * q.perpMid) * (MAKER_FEE_BPS / 10000);
+      pos.qty = newNotional / q.spotMid;
+      state.freeCash -= rebalFee;
+      state.entryFees += rebalFee;
+    }
+
+    // 2. Top-1 APY Auto-Rotation in Max 4x mode if another pair beats current APY by >= 4.0%
+    if (lm.topN === 1 && best.sym !== sym && (best.apy - q.apy) >= 4.0) {
+      const basisPnl = pos.qty * (q.spotMid - pos.spotEntry) + pos.qty * (pos.perpEntry - q.perpMid);
+      const exitFee = 2 * (pos.qty * q.perpMid) * (MAKER_FEE_BPS / 10000);
+      const freed = pos.lockedCapital + basisPnl - exitFee;
+      state.entryFees += exitFee;
+      delete state.positions[sym];
+
+      const newNotional = freed * lm.frac;
+      const entryFee = 2 * newNotional * (MAKER_FEE_BPS / 10000);
+      state.entryFees += entryFee;
+      state.freeCash -= entryFee;
+      state.rotationCount = (state.rotationCount || 0) + 1;
+      state.positions[best.sym] = {
+        sym: best.sym,
+        qty: newNotional / best.spotMid,
+        spotEntry: best.spotMid,
+        perpEntry: best.perpMid,
+        lockedCapital: freed,
+        funding: 0,
+      };
+      break;
+    }
+  }
+}
+
 function autoCompound() {
-  if (state.freeCash < COMPOUND_MIN_CASH) return;
+  const lm = LEV_MODES[state.lev] || LEV_MODES[4];
+  if (state.freeCash < lm.minCash) return;
   const best = PAIRS
     .map(p => liveQuotes[p.sym])
     .filter(q => q && q.spotMid > 0 && q.perpMid > 0 && q.apy >= 5.0)
@@ -213,7 +279,7 @@ function autoCompound() {
   if (!best) return;
 
   const deployCash = state.freeCash - 0.05;
-  const notional = deployCash * HEDGE_FRAC;
+  const notional = deployCash * lm.frac;
   if (notional < 10.0) return;
 
   const qtyAdd = notional / best.spotMid;
@@ -256,6 +322,7 @@ function accrueLiveFunding() {
     state.fundingEarned += inc;
     state.freeCash += inc;
   }
+  autoRotateAndGuard();
   autoCompound();
   saveState();
 }
@@ -320,11 +387,13 @@ async function fetchLiveHyperliquid() {
 }
 
 function renderUI() {
+  const lm = LEV_MODES[state.lev] || LEV_MODES[4];
   const { eq, basisPnl, portApy } = calcMetrics();
   const netPnl = eq - state.cap;
 
-  document.getElementById("cap-lbl").textContent = `$${state.cap.toLocaleString()}.00`;
+  document.getElementById("cap-lbl").textContent = `$${state.cap.toLocaleString()} · ${lm.label}`;
   document.querySelectorAll(".cap-btn").forEach(b => b.classList.toggle("btn-primary", Number(b.dataset.cap) === state.cap));
+  document.querySelectorAll(".lev-btn").forEach(b => b.classList.toggle("btn-primary", Number(b.dataset.lev) === state.lev));
 
   document.getElementById("eq").textContent = `$${eq.toFixed(4)}`;
   const np = document.getElementById("net-pnl");
@@ -334,6 +403,7 @@ function renderUI() {
   document.getElementById("fund-earned").textContent = `+$${state.fundingEarned.toFixed(6)}`;
   document.getElementById("proj-apy").textContent = `Live Net APY: ${portApy.toFixed(2)}%`;
 
+  document.getElementById("c-liq").textContent = `0.00% Delta · ${lm.liqBuf}`;
   document.getElementById("c-basis").textContent = `${basisPnl >= 0 ? "+" : ""}$${basisPnl.toFixed(4)}`;
   document.getElementById("c-basis").className = basisPnl >= 0 ? "pos" : "neg";
   document.getElementById("c-fees").textContent = `-$${state.entryFees.toFixed(4)}`;
@@ -343,7 +413,7 @@ function renderUI() {
   const moUsd = (state.cap * (portApy / 100)) / 12;
   document.getElementById("c-mo").textContent = `+$${moUsd.toFixed(2)} / mo`;
   document.getElementById("c-yr").textContent = `+$${yrUsd.toFixed(2)} / yr (${compApy.toFixed(2)}%)`;
-  document.getElementById("c-comp").textContent = `${state.compoundCount || 0}x · $${Math.max(0, state.freeCash).toFixed(2)} / $${COMPOUND_MIN_CASH.toFixed(2)}`;
+  document.getElementById("c-comp").textContent = `${state.compoundCount || 0}x / ${state.rotationCount || 0} rot · $${Math.max(0, state.freeCash).toFixed(2)} / $${lm.minCash.toFixed(2)}`;
 
   const mins = Math.floor((Date.now() - state.startedAt) / 60000);
   const hrs = Math.floor(mins / 60);
@@ -359,7 +429,7 @@ function renderUI() {
       return `
         <div class="mkt">
           <div class="mkt-top">
-            <span class="mkt-sym">${pos.sym} <span style="font-weight:400;font-size:11px;color:#94a3b8">1:1 Hedged</span></span>
+            <span class="mkt-sym">${pos.sym} <span style="font-weight:400;font-size:11px;color:#94a3b8">${lm.label} Hedged</span></span>
             <span class="badge" style="color:var(--green);border-color:var(--green);">+${apy.toFixed(1)}% APY</span>
           </div>
           <div class="mkt-grid">
@@ -389,8 +459,16 @@ function renderUI() {
 
 document.querySelectorAll(".cap-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    const newCap = Number(btn.dataset.cap);
-    state = freshState(newCap);
+    state = freshState(Number(btn.dataset.cap), state.lev);
+    openInitialHedges();
+    saveState();
+    renderUI();
+  });
+});
+
+document.querySelectorAll(".lev-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    state = freshState(state.cap, Number(btn.dataset.lev));
     openInitialHedges();
     saveState();
     renderUI();
@@ -398,9 +476,9 @@ document.querySelectorAll(".cap-btn").forEach(btn => {
 });
 
 document.getElementById("reset-btn").addEventListener("click", () => {
-  const cap = state.cap;
+  const cap = state.cap, lev = state.lev;
   localStorage.removeItem(STORAGE_KEY);
-  state = freshState(cap);
+  state = freshState(cap, lev);
   openInitialHedges();
   saveState();
   renderUI();
