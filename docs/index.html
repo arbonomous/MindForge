@@ -65,10 +65,10 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v5</div>
+      <div class="title">MindForge LIVE v5.1</div>
       <div class="pill"><span class="dot" id="ws-dot"></span><span id="ws-status">CONNECTING...</span></div>
     </div>
-    <div class="sub">Dual-Venue 50/50 ($50 HL + $50 Polymarket) &middot; Coinbase Lead-Lag &middot; 0% PM Maker Fees</div>
+    <div class="sub">Dual-Venue 50/50 ($50 HL + $50 Polymarket) &middot; De-Meaned CB Shock &middot; Non-Sports PM Only</div>
   </div>
 
   <div id="kill-banner" class="kill-banner"></div>
@@ -152,9 +152,9 @@
 </div>
 
 <script>
-const STORAGE_KEY = "mindforge_live_v5_dual_state";
+const STORAGE_KEY = "mindforge_live_v51_state";
 
-// Sleeve 1: Hyperliquid Perps ($50) + Coinbase Spot Lead-Lag
+// Sleeve 1: Hyperliquid Perps ($50) + De-Meaned Coinbase Spot Shock Signal
 const HL_MARKETS = [
   { sym: "KAITO",   cb: "KAITO-USD",   tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
   { sym: "FET",     cb: "FET-USD",     tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
@@ -173,14 +173,15 @@ const L2_EXTRA_BPS = 16.0;
 const TREND_SHIELD_BPS = 20.0;
 const PROFIT_LOCK_BPS = 16.0;
 const STOP_LOSS_BPS = 40.0;
-const CB_LEAD_CANCEL_BPS = 8.0;
+const CB_LEAD_CANCEL_BPS = 10.0;
 const MAX_DAILY_LOSS_PCT = 0.05;  // 5% daily loss kill switch
 const MAX_DRAWDOWN_PCT = 0.10;    // 10% peak-to-trough kill switch
+const SPORTS_RE = /\b(vs\.?|spread|o\/u|over\/under|nba|nfl|nhl|mlb|ncaa|ufc|fc|united|lakers|celtics|76ers|blazers|bengals|thunder|pacers|game \d|match|set \d|win on 202)\b/i;
 
 let running = true;
 let hlWs = null;
 let cbWs = null;
-let pmMarkets = []; // { id, q, tid, bid, ask, mid, quoteBid, quoteAsk, quoteSz, pos, avg, realized }
+let pmMarkets = [];
 let state = {};
 
 function freshState() {
@@ -204,6 +205,7 @@ function freshState() {
     recentFills: [],
     hlBooks: {},
     cbSpot: {},
+    cbBasisEwma: {},
     hlPos: {},
     hlQuotes: {},
     hlMids: {},
@@ -412,11 +414,17 @@ function updateHlQuotes(m) {
   const maxGrossUsd = sleeveEq * 1.45;
   const gross = hlGrossExposure();
 
-  // Coinbase Spot -> Hyperliquid Lead-Lag signal (bps)
+  // De-meaned Coinbase Spot -> Hyperliquid Shock Signal (removes static funding basis!)
   const cbPx = state.cbSpot[m.sym];
   let cbLeadBps = 0.0;
   if (cbPx && cbPx > 0 && bk.mid > 0) {
-    cbLeadBps = Math.max(-35, Math.min(35, ((cbPx - bk.mid) / bk.mid) * 10000));
+    const rawBasis = ((cbPx - bk.mid) / bk.mid) * 10000;
+    if (state.cbBasisEwma[m.sym] === undefined) {
+      state.cbBasisEwma[m.sym] = rawBasis;
+    } else {
+      state.cbBasisEwma[m.sym] = 0.05 * rawBasis + 0.95 * state.cbBasisEwma[m.sym];
+    }
+    cbLeadBps = Math.max(-30, Math.min(30, rawBasis - state.cbBasisEwma[m.sym]));
   }
 
   const hist = state.hlMids[m.sym];
@@ -502,14 +510,16 @@ function checkHlFills(sym, tradePx) {
   q.asks = remA;
 }
 
-// --- Polymarket CLOB Auto-Discovery & Live Polling ---
+// --- Polymarket CLOB Auto-Discovery (Non-Sports, Wide Spreads >= 50 bps) & Live Polling ---
 async function discoverPolymarket() {
   try {
-    const r = await fetch("https://gamma-api.polymarket.com/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=25");
+    const r = await fetch("https://gamma-api.polymarket.com/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=60");
     const list = await r.json();
     const picked = [];
     for (const m of list) {
       if (picked.length >= 3) break;
+      const qText = (m.question || "").replace(/\?$/, "");
+      if (!qText || SPORTS_RE.test(qText)) continue; // Exclude toxic in-play sports markets!
       const tids = typeof m.clobTokenIds === "string" ? JSON.parse(m.clobTokenIds || "[]") : (m.clobTokenIds || []);
       if (!tids.length) continue;
       const tid = tids[0];
@@ -521,19 +531,20 @@ async function discoverPolymarket() {
       if (!bids.length || !asks.length) continue;
       const bb = Math.max(...bids), ba = Math.min(...asks);
       const mid = 0.5 * (bb + ba);
-      if (mid >= 0.20 && mid <= 0.80 && ba > bb) {
-        const qText = (m.question || "Binary Market").replace(/\?$/, "");
+      const sprBps = mid > 0 ? ((ba - bb) / mid) * 10000 : 0;
+      if (mid >= 0.20 && mid <= 0.80 && ba > bb && sprBps >= 50) {
         picked.push({
           tid,
           q: qText,
           short: qText.slice(0, 14),
-          bid: bb, ask: ba, mid,
+          bid: bb, ask: ba, mid, prevMid: mid,
+          shieldUntil: 0,
           quoteBid: null, quoteAsk: null, quoteSz: 0,
         });
       }
     }
     pmMarkets = picked;
-    document.getElementById("pm-status").textContent = `${pmMarkets.length} live books`;
+    document.getElementById("pm-status").textContent = `${pmMarkets.length} non-sports books`;
     pmMarkets.forEach(updatePmQuote);
   } catch (e) {
     document.getElementById("pm-status").textContent = "retrying...";
@@ -541,21 +552,34 @@ async function discoverPolymarket() {
 }
 
 function updatePmQuote(pm) {
-  if (checkPortfolioKillSwitch() || pm.mid <= 0) {
+  if (checkPortfolioKillSwitch() || pm.mid <= 0 || Date.now() < pm.shieldUntil) {
     pm.quoteBid = null; pm.quoteAsk = null;
     return;
   }
   const p = state.pmPos[pm.tid] || { size: 0, avgEntry: 0, realized: 0 };
-  const clipUsd = 10.0;
-  const maxPosUsd = 18.0;
+
+  // Polymarket 4c stop-loss on open inventory
+  if (p.size !== 0 && p.avgEntry > 0) {
+    const advCents = p.size > 0 ? (p.avgEntry - pm.bid) : (pm.ask - p.avgEntry);
+    if (advCents >= 0.04) {
+      applyPmFill(pm, p.size > 0 ? "SELL" : "BUY", p.size > 0 ? pm.bid : pm.ask, Math.abs(p.size));
+      state.stops += 1;
+      pm.shieldUntil = Date.now() + 30000;
+      pm.quoteBid = null; pm.quoteAsk = null;
+      return;
+    }
+  }
+
+  const clipUsd = 8.0;
+  const maxPosUsd = 16.0;
   const posUsd = p.size * pm.mid;
-  // Binary token skew: lean 0.01 tick when holding inventory
-  const skew = posUsd > 5 ? -0.01 : (posUsd < -5 ? 0.01 : 0.0);
-  const myBid = Math.max(0.02, Math.min(pm.ask - 0.01, Math.round((pm.bid + skew) * 100) / 100));
-  const myAsk = Math.min(0.98, Math.max(pm.bid + 0.01, Math.round((pm.ask + skew) * 100) / 100));
+  // Rest conservatively 0.5c-1c outside top of book (or skewed to unwind inventory)
+  const pad = 0.005;
+  const skew = posUsd > 4 ? -0.005 : (posUsd < -4 ? 0.005 : 0.0);
+  const myBid = Math.max(0.02, Math.min(pm.ask - 0.005, Math.round((pm.bid - pad + skew) * 1000) / 1000));
+  const myAsk = Math.min(0.98, Math.max(pm.bid + 0.005, Math.round((pm.ask + pad + skew) * 1000) / 1000));
 
   pm.quoteBid = (posUsd + clipUsd <= maxPosUsd && state.pmCash >= clipUsd) ? myBid : null;
-  // On Polymarket binary tokens, only sell inventory we hold (or short if allowed up to cap)
   pm.quoteAsk = (p.size > 1 || posUsd - clipUsd >= -maxPosUsd) ? myAsk : null;
   pm.quoteSz = Math.max(5, Math.floor(clipUsd / pm.mid));
 }
@@ -571,9 +595,17 @@ async function pollPolymarketBooks() {
       const asks = (bk.asks || []).map(x => parseFloat(x.price));
       if (!bids.length || !asks.length) continue;
       const bb = Math.max(...bids), ba = Math.min(...asks);
-      pm.bid = bb; pm.ask = ba; pm.mid = 0.5 * (bb + ba);
+      const newMid = 0.5 * (bb + ba);
 
-      // Strict honest fill check: fill ONLY if real live Polymarket book moved across our resting quote
+      // Jump-shield: if market jumps > 1.5c in 3 seconds, pause quoting for 30s
+      if (Math.abs(newMid - pm.prevMid) >= 0.015) {
+        pm.shieldUntil = Date.now() + 30000;
+        pm.quoteBid = null; pm.quoteAsk = null;
+      }
+      pm.prevMid = newMid;
+      pm.bid = bb; pm.ask = ba; pm.mid = newMid;
+
+      // Strict honest fill check
       if (pm.quoteBid !== null && ba <= pm.quoteBid) {
         applyPmFill(pm, "BUY", pm.quoteBid, pm.quoteSz);
         pm.quoteBid = null;
@@ -585,7 +617,7 @@ async function pollPolymarketBooks() {
 
       // Accrue conservative estimated Polymarket LP reward (~0.08%/day on two-sided tight quotes)
       if (pm.quoteBid !== null && pm.quoteAsk !== null && (pm.quoteAsk - pm.quoteBid) <= 0.04) {
-        state.pmLpRewards += (20.0 * 0.0008) * (3.0 / 86400.0);
+        state.pmLpRewards += (16.0 * 0.0008) * (3.0 / 86400.0);
       }
       updatePmQuote(pm);
     } catch (e) {}
