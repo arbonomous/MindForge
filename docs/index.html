@@ -62,10 +62,10 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v6.2</div>
+      <div class="title">MindForge LIVE v6.3</div>
       <div class="pill"><span class="dot"></span><span id="ws-status">CONNECTING...</span></div>
     </div>
-    <div class="sub">100% Hyperliquid ($100) &middot; Strict Timestamped Live Fills &middot; Zero Historical Replay</div>
+    <div class="sub">100% Hyperliquid ($100) &middot; 30s Quote-Hold + Instant Shield &middot; Strict Live Fills</div>
   </div>
 
   <div id="kill-banner" class="kill-banner"></div>
@@ -319,16 +319,18 @@ function calcVolInstab(sym) {
   return std > 1e-6 ? Math.min(3.0, Math.max(0.0, (recent - mean) / std)) : 0.0;
 }
 
-function updateQuotes(m) {
+const REQUOTE_HOLD_MS = 30000; // Hold resting quotes 30s so normal chop hits them; instant override on shields/fills
+
+function updateQuotes(m, force = false) {
   if (checkKillSwitch()) {
-    state.quotes[m.sym] = { bids: [], asks: [], spreadBps: 150, instab: 0, cbShockBps: 0, status: "HALT" };
+    state.quotes[m.sym] = { bids: [], asks: [], spreadBps: 150, instab: 0, cbShockBps: 0, status: "HALT", updatedAt: Date.now() };
     return;
   }
   const bk = state.books[m.sym];
   if (!bk) return;
   const p = state.pos[m.sym];
 
-  // 40 bps per-position stop-loss
+  // 40 bps per-position stop-loss (always instant!)
   if (p.size !== 0 && p.avgEntry > 0) {
     const adv = p.size > 0
       ? ((p.avgEntry - bk.bid) / p.avgEntry) * 10000
@@ -336,15 +338,9 @@ function updateQuotes(m) {
     if (adv >= STOP_LOSS_BPS) {
       applyFill(m.sym, p.size > 0 ? "SELL" : "BUY", p.size > 0 ? bk.bid : bk.ask, Math.abs(p.size), false, "STOP");
       state.stops += 1;
+      force = true;
     }
   }
-
-  // Auto-compounding $100 bankroll sizing (20% L1 + 20% L2, max 45%/coin, 1.45x max gross)
-  const eq = totalEquity();
-  const clipUsd = Math.max(11.0, eq * 0.20);
-  const maxPosUsd = eq * 0.45;
-  const maxGrossUsd = eq * 1.45;
-  const gross = grossExposure();
 
   // De-meaned Coinbase Spot -> Hyperliquid Shock Signal
   const cbPx = state.cbSpot[m.sym];
@@ -368,6 +364,31 @@ function updateQuotes(m) {
   }
   const volInstab = calcVolInstab(m.sym);
 
+  const shockHalt = volInstab >= 2.6;
+  const shieldBid = shockHalt || (cbShockBps <= -CB_SHOCK_CANCEL_BPS) || (momShort <= -TREND_SHIELD_BPS) || (momLong <= -TREND_SHIELD_BPS * 2);
+  const shieldAsk = shockHalt || (cbShockBps >= CB_SHOCK_CANCEL_BPS) || (momShort >= TREND_SHIELD_BPS) || (momLong >= TREND_SHIELD_BPS * 2);
+  const inProfitLock = p.size !== 0 && p.avgEntry > 0 && (
+    (p.size > 0 && ((bk.mid - p.avgEntry) / p.avgEntry * 10000) >= PROFIT_LOCK_BPS) ||
+    (p.size < 0 && ((p.avgEntry - bk.mid) / p.avgEntry * 10000) >= PROFIT_LOCK_BPS)
+  );
+
+  // Hold existing resting quotes for 30s unless a safety shield, profit-lock, or fill requires instant update
+  const prevQ = state.quotes[m.sym];
+  const nowMs = Date.now();
+  const hasResting = prevQ && (prevQ.bids.length > 0 || prevQ.asks.length > 0);
+  if (!force && hasResting && !shockHalt && !shieldBid && !shieldAsk && !inProfitLock && (nowMs - (prevQ.updatedAt || 0)) < REQUOTE_HOLD_MS) {
+    prevQ.cbShockBps = cbShockBps;
+    prevQ.instab = volInstab;
+    return;
+  }
+
+  // Auto-compounding $100 bankroll sizing (20% L1 + 20% L2, max 45%/coin, 1.45x max gross)
+  const eq = totalEquity();
+  const clipUsd = Math.max(11.0, eq * 0.20);
+  const maxPosUsd = eq * 0.45;
+  const maxGrossUsd = eq * 1.45;
+  const gross = grossExposure();
+
   const fv = bk.micro * (1 + (0.35 * cbShockBps) / 10000);
   const posUsd = p.size * bk.mid;
   const rawQ = posUsd / maxPosUsd;
@@ -375,16 +396,11 @@ function updateQuotes(m) {
   const resPx = fv * (1 - (SKEW_BPS * q) / 10000);
   const halfSpread = Math.max(8.0, Math.min(150.0, m.baseSpreadBps + VOL_MULT * volBps + INSTAB_SPREAD_BPS * volInstab));
 
-  const shockHalt = volInstab >= 2.6;
-  const shieldBid = shockHalt || (cbShockBps <= -CB_SHOCK_CANCEL_BPS) || (momShort <= -TREND_SHIELD_BPS) || (momLong <= -TREND_SHIELD_BPS * 2);
-  const shieldAsk = shockHalt || (cbShockBps >= CB_SHOCK_CANCEL_BPS) || (momShort >= TREND_SHIELD_BPS) || (momLong >= TREND_SHIELD_BPS * 2);
-
   const canAddLong = (posUsd + clipUsd <= maxPosUsd) && (gross + clipUsd <= maxGrossUsd || p.size < 0);
   const canAddShort = (Math.abs(posUsd - clipUsd) <= maxPosUsd) && (gross + clipUsd <= maxGrossUsd || p.size > 0);
 
   const bids = [], asks = [];
   let profitLocked = false;
-  const nowMs = Date.now();
 
   if (!shieldBid && canAddLong) {
     for (let lv = 0; lv < 2; lv++) {
@@ -418,37 +434,40 @@ function updateQuotes(m) {
   else if (shieldBid || shieldAsk) status = "SHIELD";
   else if (!canAddLong || !canAddShort) status = "UNWIND";
 
-  state.quotes[m.sym] = { bids, asks, spreadBps: halfSpread, instab: volInstab, cbShockBps, status };
+  state.quotes[m.sym] = { bids, asks, spreadBps: halfSpread, instab: volInstab, cbShockBps, status, updatedAt: nowMs };
 }
 
 function checkBookFills(sym, bestBid, bestAsk) {
   const q = state.quotes[sym];
-  if (!q) return;
+  if (!q) return false;
+  let filledAny = false;
   const remB = [];
   for (const b of q.bids) {
-    if (bestAsk <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyFill(sym, "BUY", b.px, b.sz, true, b.tag); }
+    if (bestAsk <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyFill(sym, "BUY", b.px, b.sz, true, b.tag); filledAny = true; }
     else remB.push(b);
   }
   q.bids = remB;
   const remA = [];
   for (const a of q.asks) {
-    if (bestBid >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyFill(sym, "SELL", a.px, a.sz, true, a.tag); }
+    if (bestBid >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyFill(sym, "SELL", a.px, a.sz, true, a.tag); filledAny = true; }
     else remA.push(a);
   }
   q.asks = remA;
+  return filledAny;
 }
 
 function checkTradeFill(sym, tradeSide, tradePx, tradeTimeMs) {
-  // Strictly ignore historical trade snapshots from before WS connect
-  if (!tradeTimeMs || tradeTimeMs < wsConnectedAt) return;
+  if (!tradeTimeMs || tradeTimeMs < wsConnectedAt) return false;
   const q = state.quotes[sym];
-  if (!q) return;
+  if (!q) return false;
+  let filledAny = false;
   if (tradeSide === "A") {
     const remB = [];
     for (const b of q.bids) {
       if (tradeTimeMs >= b.placedAt && tradePx <= b.px) {
         if (b.tag === "LOCK") state.locks += 1;
         applyFill(sym, "BUY", b.px, b.sz, true, b.tag);
+        filledAny = true;
       } else remB.push(b);
     }
     q.bids = remB;
@@ -458,10 +477,12 @@ function checkTradeFill(sym, tradeSide, tradePx, tradeTimeMs) {
       if (tradeTimeMs >= a.placedAt && tradePx >= a.px) {
         if (a.tag === "LOCK") state.locks += 1;
         applyFill(sym, "SELL", a.px, a.sz, true, a.tag);
+        filledAny = true;
       } else remA.push(a);
     }
     q.asks = remA;
   }
+  return filledAny;
 }
 
 let wsConnectedAt = Date.now();
@@ -491,9 +512,9 @@ function connectHyperliquid() {
       const hist = state.mids[sym];
       hist.push(mid);
       if (hist.length > 40) hist.shift();
-      checkBookFills(sym, bid, ask);
+      const gotFill = checkBookFills(sym, bid, ask);
       const m = MARKETS.find(x => x.sym === sym);
-      if (m) updateQuotes(m);
+      if (m) updateQuotes(m, gotFill);
       state.ticks += 1;
     } else if (msg.channel === "trades" && Array.isArray(msg.data)) {
       for (const t of msg.data) {
@@ -502,9 +523,9 @@ function connectHyperliquid() {
           const tMs = Number(t.time || 0);
           if (tMs >= wsConnectedAt) {
             state.curBucketVol[t.coin] = (state.curBucketVol[t.coin] || 0) + px * sz;
-            checkTradeFill(t.coin, t.side, px, tMs);
+            const gotFill = checkTradeFill(t.coin, t.side, px, tMs);
             const m = MARKETS.find(x => x.sym === t.coin);
-            if (m) updateQuotes(m);
+            if (m && gotFill) updateQuotes(m, true);
           }
         }
       }
