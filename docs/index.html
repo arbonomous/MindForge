@@ -62,10 +62,10 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v6.3</div>
+      <div class="title">MindForge LIVE v6.4</div>
       <div class="pill"><span class="dot"></span><span id="ws-status">CONNECTING...</span></div>
     </div>
-    <div class="sub">100% Hyperliquid ($100) &middot; 30s Quote-Hold + Instant Shield &middot; Strict Live Fills</div>
+    <div class="sub">100% Hyperliquid ($100) &middot; 60s Quote-Hold &middot; Strict Live Fills</div>
   </div>
 
   <div id="kill-banner" class="kill-banner"></div>
@@ -80,6 +80,18 @@
       <div class="kpi-lbl">Trading PnL (Ex-Bridge)</div>
       <div class="kpi-val" id="tpnl">$0.0000</div>
       <div class="kpi-sm" id="fills">0 fills &middot; $0.00 vol</div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:10px 13px;">
+    <div class="sec-title" style="margin-bottom:6px;">
+      <span>Spread Mode (All &gt; 3b Round-Trip Fee)</span>
+      <span id="mode-lbl" style="color:var(--accent);">BALANCED 14b</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+      <button class="btn mode-btn" data-mode="active">Active (8b)</button>
+      <button class="btn btn-primary mode-btn" data-mode="balanced">Balanced (14b)</button>
+      <button class="btn mode-btn" data-mode="patient">Patient (22b)</button>
     </div>
   </div>
 
@@ -123,11 +135,18 @@
 <script>
 const STORAGE_KEY = "mindforge_live_v62_strict_state";
 
+const MODES = {
+  active:   { label: "ACTIVE 8b",    baseSpread: 8.0,  volMult: 0.4, l2Extra: 8.0,  profitLock: 10.0, holdMs: 60000 },
+  balanced: { label: "BALANCED 14b", baseSpread: 14.0, volMult: 0.6, l2Extra: 12.0, profitLock: 14.0, holdMs: 60000 },
+  patient:  { label: "PATIENT 22b",  baseSpread: 22.0, volMult: 1.0, l2Extra: 16.0, profitLock: 16.0, holdMs: 60000 },
+};
+let activeMode = "balanced";
+
 const MARKETS = [
-  { sym: "KAITO",   cb: "KAITO-USD",   tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
-  { sym: "FET",     cb: "FET-USD",     tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
-  { sym: "VIRTUAL", cb: "VIRTUAL-USD", tick: 0.00001, lot: 0.1, baseSpreadBps: 22.0 },
-  { sym: "DOGE",    cb: "DOGE-USD",    tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
+  { sym: "KAITO",   cb: "KAITO-USD",   tick: 0.00001, lot: 1.0, baseSpreadBps: 14.0 },
+  { sym: "FET",     cb: "FET-USD",     tick: 0.00001, lot: 1.0, baseSpreadBps: 14.0 },
+  { sym: "VIRTUAL", cb: "VIRTUAL-USD", tick: 0.00001, lot: 0.1, baseSpreadBps: 14.0 },
+  { sym: "DOGE",    cb: "DOGE-USD",    tick: 0.00001, lot: 1.0, baseSpreadBps: 14.0 },
 ];
 const BRIDGE_GAS_USD = 0.15;
 const MAKER_FEE_BPS = 1.5;
@@ -364,19 +383,20 @@ function updateQuotes(m, force = false) {
   }
   const volInstab = calcVolInstab(m.sym);
 
+  const cfg = MODES[activeMode];
   const shockHalt = volInstab >= 2.6;
   const shieldBid = shockHalt || (cbShockBps <= -CB_SHOCK_CANCEL_BPS) || (momShort <= -TREND_SHIELD_BPS) || (momLong <= -TREND_SHIELD_BPS * 2);
   const shieldAsk = shockHalt || (cbShockBps >= CB_SHOCK_CANCEL_BPS) || (momShort >= TREND_SHIELD_BPS) || (momLong >= TREND_SHIELD_BPS * 2);
   const inProfitLock = p.size !== 0 && p.avgEntry > 0 && (
-    (p.size > 0 && ((bk.mid - p.avgEntry) / p.avgEntry * 10000) >= PROFIT_LOCK_BPS) ||
-    (p.size < 0 && ((p.avgEntry - bk.mid) / p.avgEntry * 10000) >= PROFIT_LOCK_BPS)
+    (p.size > 0 && ((bk.mid - p.avgEntry) / p.avgEntry * 10000) >= cfg.profitLock) ||
+    (p.size < 0 && ((p.avgEntry - bk.mid) / p.avgEntry * 10000) >= cfg.profitLock)
   );
 
-  // Hold existing resting quotes for 30s unless a safety shield, profit-lock, or fill requires instant update
+  // Hold existing resting quotes for 60s unless a safety shield, profit-lock, or fill requires instant update
   const prevQ = state.quotes[m.sym];
   const nowMs = Date.now();
   const hasResting = prevQ && (prevQ.bids.length > 0 || prevQ.asks.length > 0);
-  if (!force && hasResting && !shockHalt && !shieldBid && !shieldAsk && !inProfitLock && (nowMs - (prevQ.updatedAt || 0)) < REQUOTE_HOLD_MS) {
+  if (!force && hasResting && !shockHalt && !shieldBid && !shieldAsk && !inProfitLock && (nowMs - (prevQ.updatedAt || 0)) < cfg.holdMs) {
     prevQ.cbShockBps = cbShockBps;
     prevQ.instab = volInstab;
     return;
@@ -394,7 +414,7 @@ function updateQuotes(m, force = false) {
   const rawQ = posUsd / maxPosUsd;
   const q = Math.max(-1, Math.min(1, rawQ));
   const resPx = fv * (1 - (SKEW_BPS * q) / 10000);
-  const halfSpread = Math.max(8.0, Math.min(150.0, m.baseSpreadBps + VOL_MULT * volBps + INSTAB_SPREAD_BPS * volInstab));
+  const halfSpread = Math.max(5.0, Math.min(150.0, cfg.baseSpread + cfg.volMult * volBps + INSTAB_SPREAD_BPS * volInstab));
 
   const canAddLong = (posUsd + clipUsd <= maxPosUsd) && (gross + clipUsd <= maxGrossUsd || p.size < 0);
   const canAddShort = (Math.abs(posUsd - clipUsd) <= maxPosUsd) && (gross + clipUsd <= maxGrossUsd || p.size > 0);
@@ -404,8 +424,8 @@ function updateQuotes(m, force = false) {
 
   if (!shieldBid && canAddLong) {
     for (let lv = 0; lv < 2; lv++) {
-      let px = roundDown(resPx * (1 - (halfSpread + lv * L2_EXTRA_BPS) / 10000), m.tick);
-      if (lv === 0 && p.size < 0 && p.avgEntry > 0 && ((p.avgEntry - bk.mid) / p.avgEntry * 10000) >= PROFIT_LOCK_BPS) {
+      let px = roundDown(resPx * (1 - (halfSpread + lv * cfg.l2Extra) / 10000), m.tick);
+      if (lv === 0 && p.size < 0 && p.avgEntry > 0 && ((p.avgEntry - bk.mid) / p.avgEntry * 10000) >= cfg.profitLock) {
         px = Math.max(px, roundDown(bk.mid * (1 - 4.0 / 10000), m.tick));
         profitLocked = true;
       }
@@ -416,8 +436,8 @@ function updateQuotes(m, force = false) {
   }
   if (!shieldAsk && canAddShort) {
     for (let lv = 0; lv < 2; lv++) {
-      let px = roundUp(resPx * (1 + (halfSpread + lv * L2_EXTRA_BPS) / 10000), m.tick);
-      if (lv === 0 && p.size > 0 && p.avgEntry > 0 && ((bk.mid - p.avgEntry) / p.avgEntry * 10000) >= PROFIT_LOCK_BPS) {
+      let px = roundUp(resPx * (1 + (halfSpread + lv * cfg.l2Extra) / 10000), m.tick);
+      if (lv === 0 && p.size > 0 && p.avgEntry > 0 && ((bk.mid - p.avgEntry) / p.avgEntry * 10000) >= cfg.profitLock) {
         px = Math.min(px, roundUp(bk.mid * (1 + 4.0 / 10000), m.tick));
         profitLocked = true;
       }
@@ -697,6 +717,16 @@ document.getElementById("reset-btn").addEventListener("click", () => {
   MARKETS.forEach(updateQuotes);
   saveState();
   renderUI();
+});
+
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    activeMode = btn.dataset.mode;
+    document.getElementById("mode-lbl").textContent = MODES[activeMode].label;
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("btn-primary", b.dataset.mode === activeMode));
+    MARKETS.forEach(m => updateQuotes(m, true));
+    renderUI();
+  });
 });
 
 state = loadState();
