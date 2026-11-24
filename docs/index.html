@@ -121,7 +121,7 @@
 </div>
 
 <script>
-const STORAGE_KEY = "mindforge_live_v6_hl_state";
+const STORAGE_KEY = "mindforge_live_v61_honest_state";
 
 const MARKETS = [
   { sym: "KAITO",   cb: "KAITO-USD",   tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
@@ -420,21 +420,44 @@ function updateQuotes(m) {
   state.quotes[m.sym] = { bids, asks, spreadBps: halfSpread, instab: volInstab, cbShockBps, status };
 }
 
-function checkFills(sym, tradePx) {
+function checkBookFills(sym, bestBid, bestAsk) {
   const q = state.quotes[sym];
   if (!q) return;
+  // A resting BUY ONLY fills on the book if market bestAsk drops <= our bid
   const remB = [];
   for (const b of q.bids) {
-    if (tradePx <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyFill(sym, "BUY", b.px, b.sz, true, b.tag); }
+    if (bestAsk <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyFill(sym, "BUY", b.px, b.sz, true, b.tag); }
     else remB.push(b);
   }
   q.bids = remB;
+  // A resting SELL ONLY fills on the book if market bestBid rises >= our ask
   const remA = [];
   for (const a of q.asks) {
-    if (tradePx >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyFill(sym, "SELL", a.px, a.sz, true, a.tag); }
+    if (bestBid >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyFill(sym, "SELL", a.px, a.sz, true, a.tag); }
     else remA.push(a);
   }
   q.asks = remA;
+}
+
+function checkTradeFill(sym, tradeSide, tradePx) {
+  const q = state.quotes[sym];
+  if (!q) return;
+  // Real market sell ("A") hits resting bids; real market buy ("B") lifts resting asks
+  if (tradeSide === "A") {
+    const remB = [];
+    for (const b of q.bids) {
+      if (tradePx <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyFill(sym, "BUY", b.px, b.sz, true, b.tag); }
+      else remB.push(b);
+    }
+    q.bids = remB;
+  } else if (tradeSide === "B") {
+    const remA = [];
+    for (const a of q.asks) {
+      if (tradePx >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyFill(sym, "SELL", a.px, a.sz, true, a.tag); }
+      else remA.push(a);
+    }
+    q.asks = remA;
+  }
 }
 
 function connectHyperliquid() {
@@ -461,8 +484,7 @@ function connectHyperliquid() {
       const hist = state.mids[sym];
       hist.push(mid);
       if (hist.length > 40) hist.shift();
-      checkFills(sym, ask);
-      checkFills(sym, bid);
+      checkBookFills(sym, bid, ask);
       const m = MARKETS.find(x => x.sym === sym);
       if (m) updateQuotes(m);
       state.ticks += 1;
@@ -471,7 +493,7 @@ function connectHyperliquid() {
         if (state.quotes[t.coin]) {
           const px = parseFloat(t.px), sz = parseFloat(t.sz);
           state.curBucketVol[t.coin] = (state.curBucketVol[t.coin] || 0) + px * sz;
-          checkFills(t.coin, px);
+          checkTradeFill(t.coin, t.side, px);
           const m = MARKETS.find(x => x.sym === t.coin);
           if (m) updateQuotes(m);
         }
