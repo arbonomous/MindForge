@@ -62,10 +62,10 @@
 <div class="wrap">
   <div>
     <div class="header">
-      <div class="title">MindForge LIVE v6</div>
+      <div class="title">MindForge LIVE v6.2</div>
       <div class="pill"><span class="dot"></span><span id="ws-status">CONNECTING...</span></div>
     </div>
-    <div class="sub">100% Hyperliquid ($100) &middot; 2-Level Ladder &middot; De-Meaned Coinbase Spot Lead-Lag</div>
+    <div class="sub">100% Hyperliquid ($100) &middot; Strict Timestamped Live Fills &middot; Zero Historical Replay</div>
   </div>
 
   <div id="kill-banner" class="kill-banner"></div>
@@ -121,7 +121,7 @@
 </div>
 
 <script>
-const STORAGE_KEY = "mindforge_live_v61_honest_state";
+const STORAGE_KEY = "mindforge_live_v62_strict_state";
 
 const MARKETS = [
   { sym: "KAITO",   cb: "KAITO-USD",   tick: 0.00001, lot: 1.0, baseSpreadBps: 22.0 },
@@ -384,6 +384,7 @@ function updateQuotes(m) {
 
   const bids = [], asks = [];
   let profitLocked = false;
+  const nowMs = Date.now();
 
   if (!shieldBid && canAddLong) {
     for (let lv = 0; lv < 2; lv++) {
@@ -394,7 +395,7 @@ function updateQuotes(m) {
       }
       px = Math.min(px, roundDown(bk.ask - m.tick * (lv + 1), m.tick));
       const sz = roundLot(clipUsd / px, m.lot);
-      if (px > 0 && sz * px >= MIN_NOTIONAL) bids.push({ px, sz, tag: (lv === 0 && profitLocked) ? "LOCK" : `L${lv+1}` });
+      if (px > 0 && sz * px >= MIN_NOTIONAL) bids.push({ px, sz, placedAt: nowMs, tag: (lv === 0 && profitLocked) ? "LOCK" : `L${lv+1}` });
     }
   }
   if (!shieldAsk && canAddShort) {
@@ -406,7 +407,7 @@ function updateQuotes(m) {
       }
       px = Math.max(px, roundUp(bk.bid + m.tick * (lv + 1), m.tick));
       const sz = roundLot(clipUsd / px, m.lot);
-      if (px > 0 && sz * px >= MIN_NOTIONAL) asks.push({ px, sz, tag: (lv === 0 && profitLocked) ? "LOCK" : `L${lv+1}` });
+      if (px > 0 && sz * px >= MIN_NOTIONAL) asks.push({ px, sz, placedAt: nowMs, tag: (lv === 0 && profitLocked) ? "LOCK" : `L${lv+1}` });
     }
   }
 
@@ -423,14 +424,12 @@ function updateQuotes(m) {
 function checkBookFills(sym, bestBid, bestAsk) {
   const q = state.quotes[sym];
   if (!q) return;
-  // A resting BUY ONLY fills on the book if market bestAsk drops <= our bid
   const remB = [];
   for (const b of q.bids) {
     if (bestAsk <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyFill(sym, "BUY", b.px, b.sz, true, b.tag); }
     else remB.push(b);
   }
   q.bids = remB;
-  // A resting SELL ONLY fills on the book if market bestBid rises >= our ask
   const remA = [];
   for (const a of q.asks) {
     if (bestBid >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyFill(sym, "SELL", a.px, a.sz, true, a.tag); }
@@ -439,31 +438,39 @@ function checkBookFills(sym, bestBid, bestAsk) {
   q.asks = remA;
 }
 
-function checkTradeFill(sym, tradeSide, tradePx) {
+function checkTradeFill(sym, tradeSide, tradePx, tradeTimeMs) {
+  // Strictly ignore historical trade snapshots from before WS connect
+  if (!tradeTimeMs || tradeTimeMs < wsConnectedAt) return;
   const q = state.quotes[sym];
   if (!q) return;
-  // Real market sell ("A") hits resting bids; real market buy ("B") lifts resting asks
   if (tradeSide === "A") {
     const remB = [];
     for (const b of q.bids) {
-      if (tradePx <= b.px) { if (b.tag === "LOCK") state.locks += 1; applyFill(sym, "BUY", b.px, b.sz, true, b.tag); }
-      else remB.push(b);
+      if (tradeTimeMs >= b.placedAt && tradePx <= b.px) {
+        if (b.tag === "LOCK") state.locks += 1;
+        applyFill(sym, "BUY", b.px, b.sz, true, b.tag);
+      } else remB.push(b);
     }
     q.bids = remB;
   } else if (tradeSide === "B") {
     const remA = [];
     for (const a of q.asks) {
-      if (tradePx >= a.px) { if (a.tag === "LOCK") state.locks += 1; applyFill(sym, "SELL", a.px, a.sz, true, a.tag); }
-      else remA.push(a);
+      if (tradeTimeMs >= a.placedAt && tradePx >= a.px) {
+        if (a.tag === "LOCK") state.locks += 1;
+        applyFill(sym, "SELL", a.px, a.sz, true, a.tag);
+      } else remA.push(a);
     }
     q.asks = remA;
   }
 }
 
+let wsConnectedAt = Date.now();
+
 function connectHyperliquid() {
   hlWs = new WebSocket("wss://api.hyperliquid.xyz/ws");
   hlWs.onopen = () => {
     state.hlConnected = true;
+    wsConnectedAt = Date.now();
     MARKETS.forEach(m => {
       hlWs.send(JSON.stringify({ method: "subscribe", subscription: { type: "l2Book", coin: m.sym } }));
       hlWs.send(JSON.stringify({ method: "subscribe", subscription: { type: "trades", coin: m.sym } }));
@@ -492,10 +499,13 @@ function connectHyperliquid() {
       for (const t of msg.data) {
         if (state.quotes[t.coin]) {
           const px = parseFloat(t.px), sz = parseFloat(t.sz);
-          state.curBucketVol[t.coin] = (state.curBucketVol[t.coin] || 0) + px * sz;
-          checkTradeFill(t.coin, t.side, px);
-          const m = MARKETS.find(x => x.sym === t.coin);
-          if (m) updateQuotes(m);
+          const tMs = Number(t.time || 0);
+          if (tMs >= wsConnectedAt) {
+            state.curBucketVol[t.coin] = (state.curBucketVol[t.coin] || 0) + px * sz;
+            checkTradeFill(t.coin, t.side, px, tMs);
+            const m = MARKETS.find(x => x.sym === t.coin);
+            if (m) updateQuotes(m);
+          }
         }
       }
     }
